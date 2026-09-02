@@ -23,7 +23,7 @@ export function DecisionButtons({ approvalId }: { approvalId: string }) {
           type="button"
           disabled={pending}
           onClick={() => submit("approved")}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-md bg-brand-900 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-brand-700 disabled:opacity-50"
         >
           Approve
         </button>
@@ -31,7 +31,7 @@ export function DecisionButtons({ approvalId }: { approvalId: string }) {
           type="button"
           disabled={pending}
           onClick={() => submit("rejected")}
-          className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 transition hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-md bg-white px-3.5 py-1.5 text-xs font-bold text-ink ring-1 ring-inset ring-line transition hover:bg-brand-50/50 disabled:opacity-50"
         >
           Reject
         </button>
@@ -39,7 +39,7 @@ export function DecisionButtons({ approvalId }: { approvalId: string }) {
       {message && (
         <span
           className={`max-w-sm rounded-md px-1.5 py-1 text-right text-[11px] leading-snug ${
-            message.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"
+            message.ok ? "bg-brand-50 text-brand-900" : "bg-rose-50 text-rose-800"
           }`}
         >
           {message.text}

@@ -22,29 +22,33 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   ]);
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <aside className="flex w-64 shrink-0 flex-col bg-slate-900">
-        <div className="px-5 py-5">
+    <div className="flex min-h-screen bg-white text-ink">
+      <aside className="flex w-64 shrink-0 flex-col border-r border-brand-900/40 bg-brand-950">
+        <div className="px-6 py-6">
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-sm font-bold text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-400 text-[13px] font-extrabold text-brand-950">
               NP
             </span>
             <span className="leading-tight">
-              <span className="block text-sm font-semibold text-white">Internal Tools</span>
-              <span className="block text-xs text-slate-400">Northwind Pay</span>
+              <span className="block text-[13px] font-extrabold uppercase tracking-[0.16em] text-white">
+                Internal
+              </span>
+              <span className="block text-[13px] font-extrabold uppercase tracking-[0.16em] text-brand-400">
+                Tools
+              </span>
             </span>
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 pb-4">
-          <div className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+        <nav className="flex-1 space-y-0.5 px-3 pb-4">
+          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-400/70">
             Apps
           </div>
           {APPS.map((app) => (
             <NavLink key={app.slug} href={`/${app.slug}`} label={app.name} />
           ))}
 
-          <div className="px-2.5 pt-5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+          <div className="px-3 pt-6 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-400/70">
             Platform
           </div>
           <NavLink
@@ -52,7 +56,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             label="Approvals"
             badge={
               pending > 0 ? (
-                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                <span className="rounded-full bg-brand-400 px-2 py-0.5 text-[11px] font-bold tabular-nums text-brand-950">
                   {pending}
                 </span>
               ) : undefined
@@ -61,21 +65,21 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <NavLink href="/audit" label="Audit log" />
         </nav>
 
-        <div className="border-t border-slate-800 px-5 py-4 text-[11px] leading-relaxed text-slate-500">
+        <div className="mx-3 mb-4 rounded-lg border border-white/10 px-4 py-3.5 text-[11px] leading-relaxed text-white/55">
           Every mutation in every app passes through one policy, approval and
           audit path.
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/80 px-8 py-3 backdrop-blur">
+      <div className="flex min-w-0 flex-1 flex-col bg-canvas">
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-white px-10 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 text-xs font-extrabold text-brand-900">
               {initials(actor.name)}
             </span>
             <span className="leading-tight">
-              <span className="block text-sm font-medium text-slate-900">{actor.name}</span>
-              <span className="block text-xs uppercase tracking-wide text-slate-500">
+              <span className="block text-sm font-bold text-ink">{actor.name}</span>
+              <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-brand-700">
                 {actor.role}
               </span>
             </span>
@@ -85,7 +89,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             currentId={actor.id}
           />
         </header>
-        <main className="min-w-0 flex-1 px-8 py-8">
+        <main className="min-w-0 flex-1 px-10 py-9">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>

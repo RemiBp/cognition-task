@@ -45,40 +45,41 @@ export default async function AuditPage({
     <>
       <PageHeader
         title="Audit log"
+        eyebrow="Platform"
         subtitle={`${total} entries. Append-only, written by the action layer rather than by each app, which is why a denied attempt is recorded too.`}
       />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/[0.02]">
+      <div className="overflow-hidden rounded-lg border border-line bg-white">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/60 text-left text-[11px] uppercase tracking-wider text-slate-500">
-              <th className="px-4 py-2.5 font-semibold">When</th>
-              <th className="px-4 py-2.5 font-semibold">Actor</th>
-              <th className="px-4 py-2.5 font-semibold">Action</th>
-              <th className="px-4 py-2.5 font-semibold">Outcome</th>
-              <th className="px-4 py-2.5 font-semibold">Change</th>
+            <tr className="border-b border-line bg-canvas text-left text-[10px] uppercase tracking-[0.14em] text-muted">
+              <th className="px-4 py-3 font-extrabold">When</th>
+              <th className="px-4 py-3 font-extrabold">Actor</th>
+              <th className="px-4 py-3 font-extrabold">Action</th>
+              <th className="px-4 py-3 font-extrabold">Outcome</th>
+              <th className="px-4 py-3 font-extrabold">Change</th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
               <tr
                 key={entry.id}
-                className="border-b border-slate-100 transition last:border-0 hover:bg-slate-50"
+                className="border-b border-line transition last:border-0 hover:bg-brand-50/50"
               >
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs tabular-nums text-slate-500">
+                <td className="whitespace-nowrap px-4 py-2.5 text-xs tabular-nums text-muted">
                   {entry.at.toISOString().slice(0, 19).replace("T", " ")}
                 </td>
-                <td className="px-4 py-2.5 text-xs text-slate-700">
+                <td className="px-4 py-2.5 text-xs text-ink">
                   {entry.actorEmail}
-                  <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
+                  <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-brand-900">
                     {entry.actorRole}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 font-mono text-xs text-slate-700">{entry.action}</td>
+                <td className="px-4 py-2.5 font-mono text-xs text-ink">{entry.action}</td>
                 <td className="px-4 py-2.5">
                   <StatusBadge value={entry.outcome} />
                 </td>
-                <td className="px-4 py-2.5 font-mono text-[11px] text-slate-600">
+                <td className="px-4 py-2.5 font-mono text-[11px] text-muted">
                   {diff(entry.before, entry.after) ?? entry.reason ?? "—"}
                 </td>
               </tr>

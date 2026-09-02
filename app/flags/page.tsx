@@ -43,13 +43,13 @@ export default async function FlagsPage({
       header: "Rollout",
       cell: (row) => (
         <span className="flex items-center gap-2">
-          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
             <span
-              className="block h-full rounded-full bg-indigo-500"
+              className="block h-full rounded-full bg-brand-500"
               style={{ width: `${row.rolloutPercent}%` }}
             />
           </span>
-          <span className="text-xs tabular-nums text-slate-500">{row.rolloutPercent}%</span>
+          <span className="text-xs tabular-nums text-muted">{row.rolloutPercent}%</span>
         </span>
       ),
     },
@@ -57,7 +57,7 @@ export default async function FlagsPage({
       header: "Updated",
       className: "whitespace-nowrap",
       cell: (row) => (
-        <span className="text-xs tabular-nums text-slate-500">
+        <span className="text-xs tabular-nums text-muted">
           {row.updatedAt.toISOString().slice(0, 16).replace("T", " ")}
         </span>
       ),
@@ -80,6 +80,7 @@ export default async function FlagsPage({
     <>
       <PageHeader
         title="Feature flag admin"
+        eyebrow="Engineering"
         subtitle="Admin-only, and applied immediately — a deliberately different risk posture from KYC and refunds. It still inherits the same audit trail, because every app writes through the same action layer."
       />
       <DataTable

@@ -52,7 +52,7 @@ export default async function RefundsPage({
     {
       header: "Amount",
       cell: (row) => (
-        <span className="font-medium tabular-nums text-slate-900">
+        <span className="font-extrabold tabular-nums text-ink">
           {(row.amountCents / 100).toFixed(2)} {row.currency}
         </span>
       ),
@@ -61,7 +61,7 @@ export default async function RefundsPage({
     { header: "Status", cell: (row) => <StatusBadge value={row.status} /> },
     {
       header: "Processor ref",
-      cell: (row) => <span className="font-mono text-[11px] text-slate-500">{row.processorRef ?? "—"}</span>,
+      cell: (row) => <span className="font-mono text-[11px] text-muted">{row.processorRef ?? "—"}</span>,
     },
     {
       header: "Decision",
@@ -84,7 +84,7 @@ export default async function RefundsPage({
             />
           </span>
         ) : (
-          <span className="text-xs text-slate-400">decided</span>
+          <span className="text-xs text-muted">decided</span>
         ),
     },
   ];
@@ -93,6 +93,7 @@ export default async function RefundsPage({
     <>
       <PageHeader
         title="Refunds dashboard"
+        eyebrow="Payments ops"
         subtitle={`Pending exposure: ${((exposure._sum.amountCents ?? 0) / 100).toFixed(2)} EUR. Approving a refund moves money, so it requires a second approver; rejecting does not.`}
       />
       <DataTable

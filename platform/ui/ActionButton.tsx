@@ -27,9 +27,9 @@ export function ActionButton({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const styles = {
-    default: "bg-slate-900 text-white hover:bg-slate-800",
+    default: "bg-brand-900 text-white hover:bg-brand-700",
     danger: "bg-white text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-50",
-    quiet: "bg-white text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50",
+    quiet: "bg-white text-brand-900 ring-1 ring-inset ring-line hover:bg-brand-50",
   }[variant];
 
   return (
@@ -37,7 +37,7 @@ export function ActionButton({
       <button
         type="button"
         disabled={pending}
-        className={`rounded-lg px-2.5 py-1 text-xs font-medium shadow-sm transition disabled:opacity-50 ${styles}`}
+        className={`rounded-md px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 ${styles}`}
         onClick={() => {
           startTransition(async () => {
             const result = await runAction(actionKey, payload, resourceId);
@@ -50,8 +50,8 @@ export function ActionButton({
       </button>
       {message && (
         <span
-          className={`max-w-xs rounded-md px-1.5 py-1 text-[11px] leading-snug ${
-            message.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"
+          className={`max-w-xs rounded-md px-2 py-1 text-[11px] font-semibold leading-snug ${
+            message.ok ? "bg-brand-50 text-brand-900" : "bg-rose-50 text-rose-800"
           }`}
         >
           {message.text}

@@ -17,9 +17,9 @@ export async function getActor(): Promise<Actor> {
   const store = await cookies();
   const id = store.get(SESSION_COOKIE)?.value;
 
-  const user = id
-    ? await db.user.findUnique({ where: { id } })
-    : await db.user.findFirst({ where: { role: "analyst" } });
+  const user =
+    (id ? await db.user.findUnique({ where: { id } }) : null) ??
+    (await db.user.findFirst({ where: { role: "analyst" } }));
 
   if (!user) {
     throw new Error("No users in database — run `npm run db:seed`.");

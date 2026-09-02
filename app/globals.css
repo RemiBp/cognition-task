@@ -1,14 +1,35 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-manrope);
+
+  --color-brand-950: #00382d;
+  --color-brand-900: #00493a;
+  --color-brand-700: #0f6b57;
+  --color-brand-500: #2db48e;
+  --color-brand-400: #3fcfa5;
+  --color-brand-100: #d8e7e2;
+  --color-brand-50: #eef4f2;
+
+  --color-ink: #171717;
+  --color-muted: #52525c;
+  --color-line: #e4e4e7;
+  --color-canvas: #fafafa;
 }
 
 body {
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.03em;
 }
 
 ::selection {
-  background: #c7d2fe;
+  background: #3fcfa5;
+  color: #00382d;
 }

@@ -141,7 +141,7 @@ export default async function ${pascal}Page({
             />
           </span>
         ) : (
-          <span className="text-xs text-slate-400">closed</span>
+          <span className="text-xs text-muted">closed</span>
         ),
     },
   ];

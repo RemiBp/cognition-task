@@ -14,7 +14,7 @@ export function StatusFilter({
     <select
       name="status"
       defaultValue={value}
-      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+      className="rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
     >
       <option value="open">Needs review</option>
       <option value="all">All statuses</option>
