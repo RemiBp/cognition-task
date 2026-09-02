@@ -66,3 +66,5 @@ The generator adds the Prisma model, an actions file with a maker-checker action
 ## What this is not
 
 See [`docs/NOT_REPLICATED.md`](docs/NOT_REPLICATED.md) for the honest list — citizen development, connector library, inherited compliance, on-call. [`docs/COST_MODEL.md`](docs/COST_MODEL.md) has the seat math, and [`KEY_DECISIONS.md`](KEY_DECISIONS.md) the scope and architecture rationale.
+
+The same KYC queue was also built in a live Power Apps tenant and timed, so the comparison is first-hand: [`docs/POWER_APPS_COMPARISON.md`](docs/POWER_APPS_COMPARISON.md).
