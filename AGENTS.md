@@ -17,7 +17,12 @@ npm run new-app -- --slug <slug> --name "<Name>" --purpose "<one line>"
 npm run db:push
 ```
 
-Then extend the generated Prisma model with the real fields, adjust the generated actions and table columns, and run `npm run typecheck && npm run lint`.
+Restart `npm run dev` after `db:push` — a running server holds the old Prisma client and the new
+route will throw. Then extend the generated Prisma model with the real fields, adjust the generated
+actions and table columns, and run `npm run typecheck && npm run lint`.
+
+Removing a generated app also means deleting `.next/types/app/<slug>`, otherwise typecheck still
+resolves its stale route types.
 
 ## Prompt template for Devin
 
