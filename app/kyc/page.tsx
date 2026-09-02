@@ -1,9 +1,13 @@
 import { db } from "@/platform/db";
+import { statusWhere } from "@/platform/filters";
 import { ActionButton } from "@/platform/ui/ActionButton";
 import { DataTable, type Column } from "@/platform/ui/DataTable";
+import { StatusFilter } from "@/platform/ui/StatusFilter";
 import { PageHeader, StatusBadge } from "@/platform/ui/primitives";
 
 const PAGE_SIZE = 10;
+const STATUSES = ["pending", "escalated", "approved", "rejected"] as const;
+const OPEN_STATUSES = ["pending", "escalated"] as const;
 
 type KycRow = {
   id: string;
@@ -18,18 +22,22 @@ type KycRow = {
 export default async function KycPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; status?: string }>;
 }) {
-  const { q, page: pageParam } = await searchParams;
+  const { q, page: pageParam, status: statusParam } = await searchParams;
   const page = Math.max(1, Number(pageParam ?? 1));
-  const where = q
-    ? { OR: [{ customerName: { contains: q } }, { country: { contains: q } }] }
-    : {};
+  const status = statusParam ?? "open";
+  const where = {
+    ...statusWhere(status, OPEN_STATUSES),
+    ...(q
+      ? { OR: [{ customerName: { contains: q } }, { country: { contains: q } }] }
+      : {}),
+  };
 
   const [rows, total] = await Promise.all([
     db.kycCase.findMany({
       where,
-      orderBy: [{ status: "asc" }, { riskScore: "desc" }],
+      orderBy: [{ riskScore: "desc" }, { submittedAt: "asc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -109,9 +117,10 @@ export default async function KycPage({
       <DataTable
         rows={rows}
         columns={columns}
-        query={{ q, page, pageSize: PAGE_SIZE, total }}
+        query={{ q, page, pageSize: PAGE_SIZE, total, params: { status } }}
         basePath="/kyc"
         searchPlaceholder="Search customer or country…"
+        filters={<StatusFilter value={status} statuses={STATUSES} />}
       />
     </>
   );

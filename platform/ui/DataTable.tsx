@@ -12,6 +12,8 @@ export type TableQuery = {
   page?: number;
   pageSize: number;
   total: number;
+  /** Extra filter params carried through search and pagination links. */
+  params?: Record<string, string>;
 };
 
 /**
@@ -26,18 +28,21 @@ export function DataTable<T extends { id: string }>({
   query,
   basePath,
   searchPlaceholder = "Search…",
+  filters,
 }: {
   rows: T[];
   columns: Column<T>[];
   query: TableQuery;
   basePath: string;
   searchPlaceholder?: string;
+  filters?: ReactNode;
 }) {
   const page = query.page ?? 1;
   const pages = Math.max(1, Math.ceil(query.total / query.pageSize));
   const href = (nextPage: number) =>
     `${basePath}?${new URLSearchParams({
       ...(query.q ? { q: query.q } : {}),
+      ...(query.params ?? {}),
       page: String(nextPage),
     })}`;
 
@@ -53,6 +58,7 @@ export function DataTable<T extends { id: string }>({
           placeholder={searchPlaceholder}
           className="w-72 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
+        {filters}
         <button
           type="submit"
           className="rounded-lg bg-slate-900 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
