@@ -12,12 +12,12 @@ Written for the VP of Engineering, deliberately unflattering to the build case.
 
 ## Present as a seam, not as a real implementation
 
-- **Authentication.** The role switcher is a signed-cookie stand-in for SSO. Production needs a real OIDC callback, a signed session, and IdP-group→role mapping. This is a known, bounded piece of work, but it is not done.
+- **Authentication.** The role switcher stores a demo user id in an unsigned, HTTP-only cookie; it is not authentication. Production needs a real OIDC callback, a signed session, and IdP-group→role mapping. This is a known, bounded piece of work, but it is not done.
 - **Append-only audit.** Enforced by having no delete path in the code. Production should enforce it at the database (revoked DELETE/UPDATE grants, or an external write-once sink).
 - **Data store.** SQLite for zero-setup review; Postgres for anything real. Row-level security, encryption at rest and backups are not configured.
 
 ## Risks I would flag before committing
 
 - **Platform drift.** The primitives are clean at three apps. At thirteen, with staff turnover, they stay clean only if someone owns them. Budget the owner explicitly.
-- **No tests in the prototype.** A governance platform without tests around the policy and approval paths should not touch real money. That work is small but non-optional.
+- **Narrow test coverage.** Six automated tests cover denied actions, invalid payloads, duplicate proposals, self-approval, second-person execution and concurrent approval clicks. Production still needs failure-recovery, broader concurrency, integration and end-to-end coverage before this can touch real money.
 - **Agent-generated code still needs review.** Devin makes the marginal app nearly free to write; it does not make it free to review. The review budget is the real constraint on the 10-app plan.

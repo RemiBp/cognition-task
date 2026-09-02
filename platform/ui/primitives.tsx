@@ -65,7 +65,11 @@ export function StatusBadge({ value }: { value: string }) {
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-sm border border-line bg-white p-6 ${className}`}>{children}</div>
+    <div
+      className={`rounded-lg border border-line bg-white p-6 shadow-[0_1px_2px_rgba(0,16,18,0.03)] ${className}`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -80,7 +84,7 @@ export function StatCard({
 }) {
   return (
     <div
-      className={`rounded-sm border p-5 ${
+      className={`rounded-lg border p-5 shadow-[0_1px_2px_rgba(0,16,18,0.03)] ${
         accent ? "border-brand-900 bg-brand-900 text-white" : "border-line bg-white"
       }`}
     >

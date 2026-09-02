@@ -47,7 +47,7 @@ export function DataTable<T extends { id: string }>({
     })}`;
 
   return (
-    <div className="overflow-hidden rounded-sm border border-line bg-white">
+    <div className="overflow-hidden rounded-lg border border-line bg-white shadow-[0_1px_2px_rgba(0,16,18,0.03)]">
       <form
         action={basePath}
         className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3.5"
@@ -71,41 +71,43 @@ export function DataTable<T extends { id: string }>({
         </span>
       </form>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.16em] text-muted">
-            {columns.map((column) => (
-              <th
-                key={column.header}
-                className={`px-4 py-3 font-semibold ${column.className ?? ""}`}
-              >
-                {column.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={columns.length} className="px-4 py-14 text-center text-muted">
-                No records match this filter.
-              </td>
-            </tr>
-          )}
-          {rows.map((row) => (
-            <tr
-              key={row.id}
-              className="border-b border-line/60 align-middle transition last:border-0 hover:bg-canvas"
-            >
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.16em] text-muted">
               {columns.map((column) => (
-                <td key={column.header} className={`px-4 py-3 ${column.className ?? ""}`}>
-                  {column.cell(row)}
-                </td>
+                <th
+                  key={column.header}
+                  className={`px-4 py-3 font-semibold ${column.className ?? ""}`}
+                >
+                  {column.header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-14 text-center text-muted">
+                  No records match this filter.
+                </td>
+              </tr>
+            )}
+            {rows.map((row) => (
+              <tr
+                key={row.id}
+                className="border-b border-line/60 align-middle transition last:border-0 hover:bg-canvas"
+              >
+                {columns.map((column) => (
+                  <td key={column.header} className={`px-4 py-3 ${column.className ?? ""}`}>
+                    {column.cell(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {pages > 1 && (
         <div className="flex items-center justify-between border-t border-line px-4 py-3.5 text-sm">

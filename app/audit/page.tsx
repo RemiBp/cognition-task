@@ -46,11 +46,11 @@ export default async function AuditPage({
       <PageHeader
         title="Audit log"
         eyebrow="Platform"
-        subtitle={`${total} entries. Append-only, written by the action layer rather than by each app, which is why a denied attempt is recorded too.`}
+        subtitle={`${total} entries. Written centrally by the action layer, including denied attempts. Production would enforce immutability in the database or an external audit sink.`}
       />
 
-      <div className="overflow-hidden rounded-sm border border-line bg-white">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-sm border border-line bg-white">
+        <table className="min-w-[900px] w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.16em] text-muted">
               <th className="px-4 py-3 font-semibold">When</th>

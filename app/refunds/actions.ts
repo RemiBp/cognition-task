@@ -1,5 +1,6 @@
 import { registerAction } from "@/platform/actions";
 import { db } from "@/platform/db";
+import { z } from "zod";
 
 const money = (cents: number, currency: string) =>
   `${(cents / 100).toFixed(2)} ${currency}`;
@@ -8,8 +9,10 @@ export const approveRefund = registerAction<{ refundId: string }>({
   key: "refund.approve",
   resource: "refund",
   roles: ["analyst", "approver", "admin"],
+  schema: z.object({ refundId: z.string().min(1) }),
+  resourceId: ({ refundId }) => refundId,
   requiresApproval: true,
-  describe: ({ refundId }) => `Approve refund ${refundId.slice(0, 8)}`,
+  describe: ({ refundId }) => `Approve refund …${refundId.slice(-6)}`,
   before: ({ refundId }) => db.refund.findUnique({ where: { id: refundId } }),
   apply: async ({ refundId }, ctx) => {
     const refund = await db.refund.findUniqueOrThrow({ where: { id: refundId } });
@@ -34,7 +37,9 @@ export const rejectRefund = registerAction<{ refundId: string }>({
   key: "refund.reject",
   resource: "refund",
   roles: ["analyst", "approver", "admin"],
-  describe: ({ refundId }) => `Reject refund ${refundId.slice(0, 8)}`,
+  schema: z.object({ refundId: z.string().min(1) }),
+  resourceId: ({ refundId }) => refundId,
+  describe: ({ refundId }) => `Reject refund …${refundId.slice(-6)}`,
   before: ({ refundId }) => db.refund.findUnique({ where: { id: refundId } }),
   apply: async ({ refundId }, ctx) => {
     const updated = await db.refund.update({

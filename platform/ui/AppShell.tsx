@@ -23,7 +23,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-white text-ink">
-      <aside className="flex w-64 shrink-0 flex-col bg-brand-900">
+      <aside className="flex w-60 shrink-0 flex-col bg-brand-900">
         <div className="px-6 py-6">
           <Link href="/" className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-[13px] font-extrabold text-brand-900">
@@ -66,8 +66,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mx-3 mb-4 rounded-lg border border-white/10 px-4 py-3.5 text-[11px] leading-relaxed text-white/55">
-          Every mutation in every app passes through one policy, approval and
-          audit path.
+          Governed actions share one policy, approval and audit path.
         </div>
       </aside>
 
@@ -89,7 +88,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             currentId={actor.id}
           />
         </header>
-        <main className="min-w-0 flex-1 px-10 py-9">
+        <main className="min-w-0 flex-1 px-6 py-8 xl:px-10 xl:py-9">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>

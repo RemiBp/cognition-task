@@ -6,6 +6,7 @@ import { execute } from "@/platform/actions";
 import { decide } from "@/platform/approvals";
 import { getActor, setActor } from "@/platform/auth";
 import { PolicyError } from "@/platform/rbac";
+import { z } from "zod";
 
 export async function switchUser(userId: string) {
   await setActor(userId);
@@ -24,7 +25,7 @@ export async function runAction(
     return result.status === "proposed"
       ? {
           ok: true,
-          text: "Proposed. A second person holding an approver role has to approve it.",
+          text: "Approval requested. A second approver must review it.",
         }
       : { ok: true, text: "Applied and written to the audit log." };
   } catch (error) {
@@ -36,10 +37,18 @@ export async function runAction(
 export async function decideApproval(
   approvalId: string,
   decision: "approved" | "rejected",
+  note?: string,
 ): Promise<{ ok: boolean; text: string }> {
   const actor = await getActor();
   try {
-    await decide(approvalId, decision, actor);
+    const input = z
+      .object({
+        approvalId: z.string().min(1),
+        decision: z.enum(["approved", "rejected"]),
+        note: z.string().trim().max(500).optional(),
+      })
+      .parse({ approvalId, decision, note: note || undefined });
+    await decide(input.approvalId, input.decision, actor, input.note);
     revalidatePath("/", "layout");
     return { ok: true, text: `Proposal ${decision}.` };
   } catch (error) {

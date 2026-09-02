@@ -3,33 +3,37 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "tsx scripts/ensure-env.ts",
     "dev": "next dev",
+    "prebuild": "tsx scripts/ensure-env.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "pretest": "tsx scripts/ensure-test-db.ts",
+    "test": "DATABASE_URL=\"file:./test.db\" prisma db push --skip-generate && DATABASE_URL=\"file:./test.db\" node --import tsx --test --test-concurrency=1 tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "presetup": "tsx scripts/ensure-env.ts",
     "setup": "prisma db push && tsx prisma/seed.ts",
     "new-app": "tsx scripts/new-app.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
-    "next": "15.5.25",
-    "prisma": "^6.19.3",
+    "@prisma/client": "^6.12.0",
+    "next": "^16.3.4",
+    "prisma": "^6.12.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "tsx": "^4.23.13",
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.25",
+    "eslint-config-next": "^16.3.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

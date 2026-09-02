@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import { db } from "./db";
 import { PolicyError, type Actor, type Role } from "./rbac";
 
@@ -23,6 +24,10 @@ export type ActionDefinition<P> = {
   resource: string;
   /** Roles allowed to invoke the action at all. */
   roles: readonly Role[];
+  /** Runtime validation for payloads arriving across the client boundary. */
+  schema: z.ZodType<P>;
+  /** Canonical resource id used for policy, approval and audit records. */
+  resourceId?: (payload: P) => string;
   /**
    * When true the action never applies directly: it becomes a proposal that a
    * different user holding `approval.decide` must approve.
@@ -60,9 +65,9 @@ type ExecuteOptions = {
   approvedBy?: { requestId: string; deciderId: string };
 };
 
-export async function execute<P>(
+export async function execute(
   actionKey: string,
-  payload: P,
+  payload: unknown,
   actor: Actor,
   options: ExecuteOptions = {},
 ): Promise<ExecuteResult> {
@@ -80,18 +85,65 @@ export async function execute<P>(
       requestId,
     });
     throw new PolicyError(
-      `${actor.email} (${actor.role}) is not permitted to ${actionKey}`,
+      "You do not have permission to perform this action. The attempt was blocked and logged.",
     );
   }
 
+  const parsed = action.schema.safeParse(payload);
+  if (!parsed.success) {
+    await writeAudit({
+      actor,
+      action: actionKey,
+      resource: action.resource,
+      resourceId: options.resourceId,
+      outcome: "denied",
+      reason: "invalid action payload",
+      requestId,
+    });
+    throw new PolicyError("The request was invalid. The attempt was blocked and logged.");
+  }
+
+  const validPayload = parsed.data;
+  const canonicalResourceId = action.resourceId?.(validPayload) ?? options.resourceId;
+
+  if (
+    options.resourceId &&
+    canonicalResourceId &&
+    options.resourceId !== canonicalResourceId
+  ) {
+    await writeAudit({
+      actor,
+      action: actionKey,
+      resource: action.resource,
+      resourceId: canonicalResourceId,
+      outcome: "denied",
+      reason: "resource id mismatch",
+      requestId,
+    });
+    throw new PolicyError("The request was invalid. The attempt was blocked and logged.");
+  }
+
   if (action.requiresApproval && !options.approvedBy) {
+    const existing = await db.approvalRequest.findFirst({
+      where: {
+        action: actionKey,
+        resource: action.resource,
+        resourceId: canonicalResourceId ?? null,
+        status: "pending",
+      },
+    });
+
+    if (existing) {
+      return { status: "proposed", approvalId: existing.id };
+    }
+
     const approval = await db.approvalRequest.create({
       data: {
         action: actionKey,
         resource: action.resource,
-        resourceId: options.resourceId,
-        payload: JSON.stringify(payload),
-        summary: action.describe(payload),
+        resourceId: canonicalResourceId,
+        payload: JSON.stringify(validPayload),
+        summary: action.describe(validPayload),
         reason: options.reason,
         requestedById: actor.id,
       },
@@ -101,7 +153,7 @@ export async function execute<P>(
       actor,
       action: actionKey,
       resource: action.resource,
-      resourceId: options.resourceId,
+      resourceId: canonicalResourceId,
       outcome: "proposed",
       reason: options.reason,
       requestId,
@@ -110,9 +162,9 @@ export async function execute<P>(
     return { status: "proposed", approvalId: approval.id };
   }
 
-  const before = action.before ? await action.before(payload) : undefined;
+  const before = action.before ? await action.before(validPayload) : undefined;
   let after: unknown;
-  const result = await action.apply(payload, {
+  const result = await action.apply(validPayload, {
     actor,
     snapshot: (value) => {
       after = value;
@@ -123,7 +175,7 @@ export async function execute<P>(
     actor,
     action: actionKey,
     resource: action.resource,
-    resourceId: options.resourceId,
+    resourceId: canonicalResourceId,
     outcome: "executed",
     before,
     after: after ?? result,

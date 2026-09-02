@@ -31,10 +31,11 @@ SQLite, and there is no reporting or automation surface.
 
 ## What it did not give us, and matters for fintech
 
-- **No maker-checker.** The generated app lets a single user edit `Status` on a KYC case and save.
-  Enforcing "an analyst proposes, a different approver executes" requires custom columns plus a
-  Power Automate flow plus a business rule — i.e. exactly the governance work we put in the
-  platform layer, done per app and outside version control.
+- **No maker-checker by default.** The generated app lets a single user edit `Status` on a KYC
+  case and save. Enforcing "an analyst proposes, a different approver executes" requires extra
+  solution components such as Dataverse columns, Power Automate flows and business rules. Those
+  controls can be packaged and reused, but they are additional design work rather than a property
+  of the generated form.
 - **No action-level audit of intent.** Dataverse auditing (when enabled) records field changes. It
   does not record a denied attempt, a proposal, or who approved what and why. Our `AuditLog` records
   `denied`, `proposed`, `approved` and `executed` for every action, with before/after snapshots.
@@ -45,8 +46,19 @@ SQLite, and there is no reporting or automation surface.
 - **Locale is not app-scoped.** The maker portal renders in English while the published app renders
   in French (`Enregistrer`, `Nb de lignes`, `Actualiser`) because it follows the user's tenant
   language. Mixed-language internal tooling is not something the app author controls cheaply.
-- **The app is not a reviewable artifact.** There is no diff, no PR, no test. Changes are made by a
-  maker in a browser against a solution, and correctness rests on the maker.
+- **Reviewability is available, not automatic.** Power Platform solutions can be exported or
+  synchronized to Git, represented as source-controlled YAML, promoted through pipelines and
+  tested with Test Studio. The 20-minute maker path did not create that ALM discipline for us;
+  it has to be established and enforced. Conventional application code still produces a more
+  direct and familiar review surface for this engineering team.
+
+## Delegation nuance
+
+The 500-row default (2,000 maximum) applies when a **canvas app** uses a Power Fx expression that
+cannot be delegated to its data source. It can produce incomplete results and is a genuine
+correctness risk, but Power Apps Studio surfaces delegation warnings and well-designed queries can
+avoid it. The model-driven Dataverse list built for this comparison uses server-side views, so its
+result set should not be presented as subject to the same client-side truncation.
 
 ## Honest read
 
@@ -55,6 +67,7 @@ will stay faster. Twenty minutes with no code, and the end user gets column and 
 would have to build.
 
 The moment the requirement is "this decision needs two people and a defensible trail", the
-platform stops helping and the work moves into per-app flows that are hard to review. That is the
-line the recommendation in `KEY_DECISIONS.md` is drawn on: keep Power Apps where the app is a form
-over a table, own the platform where the app is a control.
+generated form is no longer the whole solution. Power Platform can still implement the control,
+but it requires deliberate ALM and workflow design. That is the line in `KEY_DECISIONS.md`: keep
+Power Apps where maker autonomy and platform services dominate; pilot owned code where custom
+controls, engineering review and repeatability dominate.
