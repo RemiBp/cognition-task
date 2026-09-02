@@ -43,9 +43,9 @@ export default async function FlagsPage({
       header: "Rollout",
       cell: (row) => (
         <span className="flex items-center gap-2">
-          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
+          <span className="h-[3px] w-16 overflow-hidden bg-line">
             <span
-              className="block h-full rounded-full bg-brand-500"
+              className="block h-full bg-brand-900"
               style={{ width: `${row.rolloutPercent}%` }}
             />
           </span>

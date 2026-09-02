@@ -45,18 +45,18 @@ export default async function KycPage({
   ]);
 
   const columns: Column<KycRow>[] = [
-    { header: "Customer", cell: (row) => <span className="font-bold">{row.customerName}</span> },
+    { header: "Customer", cell: (row) => <span className="font-semibold">{row.customerName}</span> },
     { header: "Country", cell: (row) => row.country },
     {
       header: "Risk",
       cell: (row) => (
         <span
-          className={`inline-flex min-w-8 justify-center rounded-md px-2 py-0.5 text-xs font-extrabold tabular-nums ${
+          className={`text-[13px] font-semibold tabular-nums ${
             row.riskScore >= 70
-              ? "bg-rose-50 text-rose-700"
+              ? "text-rose-700"
               : row.riskScore >= 40
-                ? "bg-amber-50 text-amber-700"
-                : "bg-zinc-100 text-muted"
+                ? "text-amber-700"
+                : "text-muted"
           }`}
         >
           {row.riskScore}

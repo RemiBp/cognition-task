@@ -39,7 +39,7 @@ export default async function Home() {
         ))}
       </div>
 
-      <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+      <h2 className="mb-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
         Apps on this platform
       </h2>
       <div className="grid grid-cols-3 gap-4">
@@ -48,13 +48,13 @@ export default async function Home() {
             <Card className="h-full transition group-hover:border-brand-900">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[17px] font-extrabold text-ink">{app.name}</span>
-                <span className="text-brand-500 transition group-hover:translate-x-1 group-hover:text-brand-900">
+                <span className="text-ink/25 transition group-hover:translate-x-1 group-hover:text-brand-900">
                   →
                 </span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-muted">{app.purpose}</p>
               {app.replaces && (
-                <p className="mt-5 border-t border-line pt-3.5 text-[11px] font-bold uppercase tracking-[0.1em] text-brand-700">
+                <p className="mt-5 border-t border-line pt-3.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
                   Replaces {app.replaces}
                 </p>
               )}

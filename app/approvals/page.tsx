@@ -22,7 +22,7 @@ export default async function ApprovalsPage() {
       />
 
       {!mayDecide && (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-4 rounded-sm border-l-2 border-amber-500 bg-canvas px-4 py-3 text-sm text-ink">
           You are signed in as <span className="font-medium">{actor.role}</span>, which cannot
           decide on proposals. Switch the demo identity to an approver or admin.
         </div>
@@ -35,7 +35,7 @@ export default async function ApprovalsPage() {
           </Card>
         )}
         {pending.map((request) => (
-          <Card key={request.id} className="border-l-[3px] border-l-brand-500">
+          <Card key={request.id} className="border-l-2 border-l-brand-900">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[15px] font-bold text-ink">{request.summary}</div>
@@ -53,16 +53,16 @@ export default async function ApprovalsPage() {
 
       {decided.length > 0 && (
         <>
-          <h2 className="mt-10 mb-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+          <h2 className="mt-10 mb-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
             Recently decided
           </h2>
-          <div className="overflow-hidden rounded-lg border border-line bg-white">
+          <div className="overflow-hidden rounded-sm border border-line bg-white">
             <table className="w-full text-sm">
               <tbody>
                 {decided.map((request) => (
                   <tr
                     key={request.id}
-                    className="border-b border-line transition last:border-0 hover:bg-brand-50/50"
+                    className="border-b border-line/60 transition last:border-0 hover:bg-canvas"
                   >
                     <td className="px-4 py-3">{request.summary}</td>
                     <td className="px-4 py-3">

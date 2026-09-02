@@ -52,7 +52,7 @@ export default async function RefundsPage({
     {
       header: "Amount",
       cell: (row) => (
-        <span className="font-extrabold tabular-nums text-ink">
+        <span className="font-semibold tabular-nums text-ink">
           {(row.amountCents / 100).toFixed(2)} {row.currency}
         </span>
       ),

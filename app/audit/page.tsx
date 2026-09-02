@@ -49,29 +49,29 @@ export default async function AuditPage({
         subtitle={`${total} entries. Append-only, written by the action layer rather than by each app, which is why a denied attempt is recorded too.`}
       />
 
-      <div className="overflow-hidden rounded-lg border border-line bg-white">
+      <div className="overflow-hidden rounded-sm border border-line bg-white">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-line bg-canvas text-left text-[10px] uppercase tracking-[0.14em] text-muted">
-              <th className="px-4 py-3 font-extrabold">When</th>
-              <th className="px-4 py-3 font-extrabold">Actor</th>
-              <th className="px-4 py-3 font-extrabold">Action</th>
-              <th className="px-4 py-3 font-extrabold">Outcome</th>
-              <th className="px-4 py-3 font-extrabold">Change</th>
+            <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.16em] text-muted">
+              <th className="px-4 py-3 font-semibold">When</th>
+              <th className="px-4 py-3 font-semibold">Actor</th>
+              <th className="px-4 py-3 font-semibold">Action</th>
+              <th className="px-4 py-3 font-semibold">Outcome</th>
+              <th className="px-4 py-3 font-semibold">Change</th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
               <tr
                 key={entry.id}
-                className="border-b border-line transition last:border-0 hover:bg-brand-50/50"
+                className="border-b border-line/60 transition last:border-0 hover:bg-canvas"
               >
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs tabular-nums text-muted">
                   {entry.at.toISOString().slice(0, 19).replace("T", " ")}
                 </td>
                 <td className="px-4 py-2.5 text-xs text-ink">
                   {entry.actorEmail}
-                  <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-brand-900">
+                  <span className="ml-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
                     {entry.actorRole}
                   </span>
                 </td>

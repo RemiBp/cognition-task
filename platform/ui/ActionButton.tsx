@@ -27,9 +27,9 @@ export function ActionButton({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const styles = {
-    default: "bg-brand-900 text-white hover:bg-brand-700",
-    danger: "bg-white text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-50",
-    quiet: "bg-white text-brand-900 ring-1 ring-inset ring-line hover:bg-brand-50",
+    default: "bg-brand-900 text-white hover:bg-ink",
+    danger: "bg-white text-ink/70 ring-1 ring-inset ring-line hover:text-rose-700 hover:ring-rose-300",
+    quiet: "bg-white text-ink ring-1 ring-inset ring-line hover:ring-ink/40",
   }[variant];
 
   return (
@@ -37,7 +37,7 @@ export function ActionButton({
       <button
         type="button"
         disabled={pending}
-        className={`rounded-md px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 ${styles}`}
+        className={`inline-flex h-7 items-center rounded-sm px-3 text-[12px] font-semibold tracking-[-0.005em] transition outline-none focus-visible:ring-2 focus-visible:ring-brand-900/25 disabled:opacity-40 ${styles}`}
         onClick={() => {
           startTransition(async () => {
             const result = await runAction(actionKey, payload, resourceId);
@@ -50,8 +50,8 @@ export function ActionButton({
       </button>
       {message && (
         <span
-          className={`max-w-xs rounded-md px-2 py-1 text-[11px] font-semibold leading-snug ${
-            message.ok ? "bg-brand-50 text-brand-900" : "bg-rose-50 text-rose-800"
+          className={`max-w-xs border-l-2 pl-2 text-[11px] font-medium leading-snug ${
+            message.ok ? "border-brand-900 text-brand-900" : "border-rose-500 text-rose-800"
           }`}
         >
           {message.text}

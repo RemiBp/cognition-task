@@ -47,7 +47,7 @@ export function DataTable<T extends { id: string }>({
     })}`;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-white">
+    <div className="overflow-hidden rounded-sm border border-line bg-white">
       <form
         action={basePath}
         className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3.5"
@@ -56,28 +56,28 @@ export function DataTable<T extends { id: string }>({
           name="q"
           defaultValue={query.q ?? ""}
           placeholder={searchPlaceholder}
-          className="w-72 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          className="h-9 w-72 rounded-sm border border-line bg-white px-3 text-sm outline-none placeholder:text-ink/35 focus:border-brand-900 focus:ring-2 focus:ring-brand-900/15"
         />
         {filters}
         <button
           type="submit"
-          className="rounded-md bg-brand-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-700"
+          className="inline-flex h-9 items-center rounded-sm bg-brand-900 px-4 text-[13px] font-semibold text-white transition outline-none hover:bg-ink focus-visible:ring-2 focus-visible:ring-brand-900/25"
         >
           Filter
         </button>
-        <span className="ml-auto text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-          <span className="text-brand-900 tabular-nums">{query.total}</span> record
+        <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+          <span className="font-bold text-ink tabular-nums">{query.total}</span> record
           {query.total === 1 ? "" : "s"} · server-side query
         </span>
       </form>
 
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-line bg-canvas text-left text-[10px] uppercase tracking-[0.14em] text-muted">
+          <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.16em] text-muted">
             {columns.map((column) => (
               <th
                 key={column.header}
-                className={`px-4 py-3 font-extrabold ${column.className ?? ""}`}
+                className={`px-4 py-3 font-semibold ${column.className ?? ""}`}
               >
                 {column.header}
               </th>
@@ -95,7 +95,7 @@ export function DataTable<T extends { id: string }>({
           {rows.map((row) => (
             <tr
               key={row.id}
-              className="border-b border-line/70 align-middle transition last:border-0 hover:bg-brand-50/50"
+              className="border-b border-line/60 align-middle transition last:border-0 hover:bg-canvas"
             >
               {columns.map((column) => (
                 <td key={column.header} className={`px-4 py-3 ${column.className ?? ""}`}>
@@ -116,7 +116,7 @@ export function DataTable<T extends { id: string }>({
             {page > 1 && (
               <Link
                 href={href(page - 1)}
-                className="rounded-md border border-line bg-white px-3.5 py-1.5 text-sm font-bold text-brand-900 transition hover:bg-brand-50"
+                className="inline-flex h-8 items-center rounded-sm border border-line bg-white px-3.5 text-[13px] font-semibold text-ink transition hover:border-ink/40"
               >
                 Previous
               </Link>
@@ -124,7 +124,7 @@ export function DataTable<T extends { id: string }>({
             {page < pages && (
               <Link
                 href={href(page + 1)}
-                className="rounded-md border border-line bg-white px-3.5 py-1.5 text-sm font-bold text-brand-900 transition hover:bg-brand-50"
+                className="inline-flex h-8 items-center rounded-sm border border-line bg-white px-3.5 text-[13px] font-semibold text-ink transition hover:border-ink/40"
               >
                 Next
               </Link>

@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-md bg-brand-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand-900">
+    <span className="inline-flex items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-900">
+      <span aria-hidden className="h-px w-6 bg-brand-900" />
       {children}
     </span>
   );
@@ -22,9 +23,11 @@ export function PageHeader({
   return (
     <div className="mb-8 flex items-start justify-between gap-8">
       <div>
-        {eyebrow && <div className="mb-3">
-          <Eyebrow>{eyebrow}</Eyebrow>
-        </div>}
+        {eyebrow && (
+          <div className="mb-4">
+            <Eyebrow>{eyebrow}</Eyebrow>
+          </div>
+        )}
         <h1 className="text-[32px] font-extrabold leading-[1.1] text-ink">{title}</h1>
         {subtitle && (
           <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">{subtitle}</p>
@@ -35,25 +38,26 @@ export function PageHeader({
   );
 }
 
-const TONES: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-800 ring-amber-600/20",
-  escalated: "bg-orange-50 text-orange-800 ring-orange-600/20",
-  approved: "bg-brand-50 text-brand-900 ring-brand-900/15",
-  executed: "bg-brand-50 text-brand-900 ring-brand-900/15",
-  enabled: "bg-brand-50 text-brand-900 ring-brand-900/15",
-  rejected: "bg-rose-50 text-rose-800 ring-rose-600/20",
-  denied: "bg-rose-50 text-rose-800 ring-rose-600/20",
-  proposed: "bg-sky-50 text-sky-800 ring-sky-600/20",
-  disabled: "bg-zinc-100 text-zinc-600 ring-zinc-500/20",
+const TONES: Record<string, { dot: string; text: string }> = {
+  pending: { dot: "bg-amber-500", text: "text-ink/70" },
+  escalated: { dot: "bg-orange-500", text: "text-ink/70" },
+  approved: { dot: "bg-brand-900", text: "text-brand-900" },
+  executed: { dot: "bg-brand-900", text: "text-brand-900" },
+  enabled: { dot: "bg-brand-900", text: "text-brand-900" },
+  rejected: { dot: "bg-rose-500", text: "text-rose-800" },
+  denied: { dot: "bg-rose-500", text: "text-rose-800" },
+  proposed: { dot: "bg-ink/40", text: "text-ink/70" },
+  disabled: { dot: "bg-ink/20", text: "text-muted" },
 };
 
 export function StatusBadge({ value }: { value: string }) {
-  const tone = TONES[value] ?? "bg-zinc-100 text-zinc-700 ring-zinc-500/20";
+  const tone = TONES[value] ?? { dot: "bg-ink/25", text: "text-muted" };
 
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] ring-1 ring-inset ${tone}`}
+      className={`inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] ${tone.text}`}
     >
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
       {value}
     </span>
   );
@@ -61,7 +65,7 @@ export function StatusBadge({ value }: { value: string }) {
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-lg border border-line bg-white p-6 ${className}`}>{children}</div>
+    <div className={`rounded-sm border border-line bg-white p-6 ${className}`}>{children}</div>
   );
 }
 
@@ -76,7 +80,7 @@ export function StatCard({
 }) {
   return (
     <div
-      className={`rounded-lg border p-5 ${
+      className={`rounded-sm border p-5 ${
         accent ? "border-brand-900 bg-brand-900 text-white" : "border-line bg-white"
       }`}
     >
@@ -88,7 +92,7 @@ export function StatCard({
         {value}
       </div>
       <div
-        className={`mt-2.5 text-[11px] font-bold uppercase tracking-[0.12em] ${
+        className={`mt-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
           accent ? "text-white/60" : "text-muted"
         }`}
       >
