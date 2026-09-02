@@ -1,0 +1,108 @@
+// Prototype uses SQLite so the repo runs with zero infrastructure.
+// Swapping to Postgres is a provider change plus a migration; nothing in
+// platform/ depends on the engine.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String @id @default(cuid())
+  email String @unique
+  name  String
+  role  String // viewer | analyst | approver | admin
+
+  auditLogs         AuditLog[]
+  requestedApproval ApprovalRequest[] @relation("requestedBy")
+  decidedApproval   ApprovalRequest[] @relation("decidedBy")
+}
+
+/// Append-only. Written by platform/actions.ts on every mutation, so an app
+/// author cannot forget it.
+model AuditLog {
+  id         String   @id @default(cuid())
+  at         DateTime @default(now())
+  actorId    String
+  actorEmail String
+  actorRole  String
+  action     String // e.g. refund.approve
+  resource   String // e.g. refund
+  resourceId String?
+  outcome    String // executed | proposed | denied | approved | rejected
+  before     String? // JSON snapshot
+  after      String? // JSON snapshot
+  reason     String?
+  requestId  String
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([resource, resourceId])
+  @@index([at])
+}
+
+/// Maker-checker. A sensitive action becomes a proposal that a different user
+/// with a decision role has to approve before it is applied.
+model ApprovalRequest {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  action        String
+  resource      String
+  resourceId    String?
+  payload       String // JSON args for the registered action handler
+  summary       String
+  reason        String?
+  status        String   @default("pending") // pending | approved | rejected
+  requestedById String
+  decidedById   String?
+  decidedAt     DateTime?
+  decisionNote  String?
+
+  requestedBy User  @relation("requestedBy", fields: [requestedById], references: [id])
+  decidedBy   User? @relation("decidedBy", fields: [decidedById], references: [id])
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Below: the three apps that exist in Power Apps today. Thin domain models —
+// all of the governance lives in the platform tables above.
+// ---------------------------------------------------------------------------
+
+model KycCase {
+  id           String   @id @default(cuid())
+  customerName String
+  country      String
+  riskScore    Int
+  documentType String
+  status       String   @default("pending") // pending | approved | rejected | escalated
+  submittedAt  DateTime @default(now())
+  notes        String?
+}
+
+model Refund {
+  id            String   @id @default(cuid())
+  orderId       String
+  customerName  String
+  amountCents   Int
+  currency      String   @default("EUR")
+  reason        String
+  status        String   @default("pending") // pending | approved | rejected
+  requestedAt   DateTime @default(now())
+  processorRef  String?
+}
+
+model FeatureFlag {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  description    String
+  enabled        Boolean  @default(false)
+  rolloutPercent Int      @default(0)
+  environment    String   @default("production")
+  updatedAt      DateTime @updatedAt
+}
+
