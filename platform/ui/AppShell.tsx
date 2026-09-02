@@ -23,17 +23,17 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-white text-ink">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-brand-900/40 bg-brand-950">
+      <aside className="flex w-64 shrink-0 flex-col bg-brand-900">
         <div className="px-6 py-6">
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-400 text-[13px] font-extrabold text-brand-950">
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-[13px] font-extrabold text-brand-900">
               NP
             </span>
             <span className="leading-tight">
               <span className="block text-[13px] font-extrabold uppercase tracking-[0.16em] text-white">
                 Internal
               </span>
-              <span className="block text-[13px] font-extrabold uppercase tracking-[0.16em] text-brand-400">
+              <span className="block text-[13px] font-extrabold uppercase tracking-[0.16em] text-white/55">
                 Tools
               </span>
             </span>
@@ -41,14 +41,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 px-3 pb-4">
-          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-400/70">
+          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
             Apps
           </div>
           {APPS.map((app) => (
             <NavLink key={app.slug} href={`/${app.slug}`} label={app.name} />
           ))}
 
-          <div className="px-3 pt-6 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-400/70">
+          <div className="px-3 pt-6 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
             Platform
           </div>
           <NavLink
@@ -56,7 +56,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             label="Approvals"
             badge={
               pending > 0 ? (
-                <span className="rounded-full bg-brand-400 px-2 py-0.5 text-[11px] font-bold tabular-nums text-brand-950">
+                <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold tabular-nums text-brand-900">
                   {pending}
                 </span>
               ) : undefined

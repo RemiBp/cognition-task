@@ -3,18 +3,18 @@
 @theme inline {
   --font-sans: var(--font-manrope);
 
-  --color-brand-950: #00382d;
+  --color-brand-950: #003026;
   --color-brand-900: #00493a;
-  --color-brand-700: #0f6b57;
-  --color-brand-500: #2db48e;
-  --color-brand-400: #3fcfa5;
-  --color-brand-100: #d8e7e2;
-  --color-brand-50: #eef4f2;
+  --color-brand-700: #0a6450;
+  --color-brand-500: #2b9b7f;
+  --color-brand-400: #58c3a8;
+  --color-brand-100: #d5e4df;
+  --color-brand-50: #eef3f1;
 
-  --color-ink: #171717;
-  --color-muted: #52525c;
-  --color-line: #e4e4e7;
-  --color-canvas: #fafafa;
+  --color-ink: #001012;
+  --color-muted: #4b5659;
+  --color-line: #e3e7e8;
+  --color-canvas: #fafbff;
 }
 
 body {
@@ -30,6 +30,6 @@ h3 {
 }
 
 ::selection {
-  background: #3fcfa5;
-  color: #00382d;
+  background: #00493a;
+  color: #ffffff;
 }

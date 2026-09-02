@@ -27,7 +27,7 @@ export function NavLink({
     >
       <span
         className={`h-4 w-[3px] shrink-0 rounded-full transition ${
-          active ? "bg-brand-400" : "bg-transparent group-hover:bg-white/25"
+          active ? "bg-white" : "bg-transparent group-hover:bg-white/25"
         }`}
       />
       <span className="truncate">{label}</span>

@@ -77,12 +77,12 @@ export function StatCard({
   return (
     <div
       className={`rounded-lg border p-5 ${
-        accent ? "border-brand-900 bg-brand-950 text-white" : "border-line bg-white"
+        accent ? "border-brand-900 bg-brand-900 text-white" : "border-line bg-white"
       }`}
     >
       <div
         className={`text-[28px] font-extrabold leading-none tabular-nums ${
-          accent ? "text-brand-400" : "text-ink"
+          accent ? "text-white" : "text-ink"
         }`}
       >
         {value}
