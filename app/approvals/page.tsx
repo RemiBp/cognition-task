@@ -21,7 +21,7 @@ export default async function ApprovalsPage() {
       />
 
       {!mayDecide && (
-        <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           You are signed in as <span className="font-medium">{actor.role}</span>, which cannot
           decide on proposals. Switch the demo identity to an approver or admin.
         </div>
@@ -34,10 +34,10 @@ export default async function ApprovalsPage() {
           </Card>
         )}
         {pending.map((request) => (
-          <Card key={request.id}>
+          <Card key={request.id} className="border-l-4 border-l-amber-400">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-sm font-medium">{request.summary}</div>
+                <div className="text-sm font-medium text-slate-900">{request.summary}</div>
                 <div className="mt-1 text-xs text-slate-500">
                   <span className="font-mono">{request.action}</span> · proposed by{" "}
                   {request.requestedBy.name} ({request.requestedBy.role}) ·{" "}
@@ -52,19 +52,22 @@ export default async function ApprovalsPage() {
 
       {decided.length > 0 && (
         <>
-          <h2 className="mt-8 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="mt-10 mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
             Recently decided
           </h2>
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full text-sm">
               <tbody>
                 {decided.map((request) => (
-                  <tr key={request.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-2">{request.summary}</td>
-                    <td className="px-3 py-2">
+                  <tr
+                    key={request.id}
+                    className="border-b border-slate-100 transition last:border-0 hover:bg-slate-50"
+                  >
+                    <td className="px-4 py-3">{request.summary}</td>
+                    <td className="px-4 py-3">
                       <StatusBadge value={request.status} />
                     </td>
-                    <td className="px-3 py-2 text-xs text-slate-500">
+                    <td className="px-4 py-3 text-xs text-slate-500">
                       {request.requestedBy.name} → {request.decidedBy?.name ?? "—"}
                     </td>
                   </tr>

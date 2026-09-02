@@ -43,7 +43,11 @@ export default async function RefundsPage({
     { header: "Customer", cell: (row) => <span className="font-medium">{row.customerName}</span> },
     {
       header: "Amount",
-      cell: (row) => `${(row.amountCents / 100).toFixed(2)} ${row.currency}`,
+      cell: (row) => (
+        <span className="font-medium tabular-nums text-slate-900">
+          {(row.amountCents / 100).toFixed(2)} {row.currency}
+        </span>
+      ),
     },
     { header: "Reason", cell: (row) => row.reason },
     { header: "Status", cell: (row) => <StatusBadge value={row.status} /> },

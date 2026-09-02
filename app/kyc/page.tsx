@@ -42,7 +42,15 @@ export default async function KycPage({
     {
       header: "Risk",
       cell: (row) => (
-        <span className={row.riskScore >= 70 ? "font-medium text-rose-700" : ""}>
+        <span
+          className={`inline-flex min-w-8 justify-center rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
+            row.riskScore >= 70
+              ? "bg-rose-50 text-rose-700"
+              : row.riskScore >= 40
+                ? "bg-amber-50 text-amber-700"
+                : "bg-slate-100 text-slate-600"
+          }`}
+        >
           {row.riskScore}
         </span>
       ),
@@ -51,7 +59,11 @@ export default async function KycPage({
     { header: "Status", cell: (row) => <StatusBadge value={row.status} /> },
     {
       header: "Submitted",
-      cell: (row) => row.submittedAt.toISOString().slice(0, 10),
+      cell: (row) => (
+        <span className="text-xs tabular-nums text-slate-500">
+          {row.submittedAt.toISOString().slice(0, 10)}
+        </span>
+      ),
     },
     {
       header: "Decision",

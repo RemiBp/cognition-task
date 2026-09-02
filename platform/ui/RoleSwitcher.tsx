@@ -15,10 +15,10 @@ export function RoleSwitcher({
   const [pending, startTransition] = useTransition();
 
   return (
-    <label className="flex items-center gap-2 text-xs text-slate-500">
+    <label className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-400">
       Demo identity
       <select
-        className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900"
+        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-normal normal-case tracking-normal text-slate-900 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         value={currentId}
         disabled={pending}
         onChange={(event) => {

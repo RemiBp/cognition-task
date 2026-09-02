@@ -39,10 +39,28 @@ export default async function FlagsPage({
     { header: "Description", cell: (row) => row.description },
     { header: "Environment", cell: (row) => row.environment },
     { header: "State", cell: (row) => <StatusBadge value={row.enabled ? "enabled" : "disabled"} /> },
-    { header: "Rollout", cell: (row) => `${row.rolloutPercent}%` },
+    {
+      header: "Rollout",
+      cell: (row) => (
+        <span className="flex items-center gap-2">
+          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+            <span
+              className="block h-full rounded-full bg-indigo-500"
+              style={{ width: `${row.rolloutPercent}%` }}
+            />
+          </span>
+          <span className="text-xs tabular-nums text-slate-500">{row.rolloutPercent}%</span>
+        </span>
+      ),
+    },
     {
       header: "Updated",
-      cell: (row) => row.updatedAt.toISOString().slice(0, 16).replace("T", " "),
+      className: "whitespace-nowrap",
+      cell: (row) => (
+        <span className="text-xs tabular-nums text-slate-500">
+          {row.updatedAt.toISOString().slice(0, 16).replace("T", " ")}
+        </span>
+      ),
     },
     {
       header: "Action",
