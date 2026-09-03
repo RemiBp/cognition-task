@@ -60,13 +60,16 @@ writeFileSync(
   join(appDir, "actions.ts"),
   `import { registerAction } from "@/platform/actions";
 import { db } from "@/platform/db";
+import { z } from "zod";
 
 export const resolve${pascal} = registerAction<{ id: string; status: "resolved" | "dismissed" }>({
   key: "${snake}.resolve",
   resource: "${snake}",
   roles: ["analyst", "approver", "admin"],
+  schema: z.object({ id: z.string().min(1), status: z.enum(["resolved", "dismissed"]) }),
+  resourceId: ({ id }) => id,
   requiresApproval: true,
-  describe: ({ id, status }) => \`Mark ${camel} \${id.slice(0, 8)} as \${status}\`,
+  describe: ({ id, status }) => \`Mark ${camel} …\${id.slice(-6)} as \${status}\`,
   before: ({ id }) => db.${camel}.findUnique({ where: { id } }),
   apply: async ({ id, status }, ctx) => {
     const updated = await db.${camel}.update({ where: { id }, data: { status } });
@@ -171,7 +174,7 @@ writeFileSync(
   appsPath,
   apps.replace(
     /\n\];\s*$/,
-    `\n  {\n    slug: "${slug}",\n    name: "${name}",\n    purpose: "${purpose}",\n  },\n];\n`,
+    `\n  {\n    slug: "${slug}",\n    name: "${name}",\n    purpose: "${purpose}",\n    control: "Maker-checker · audited",\n  },\n];\n`,
   ),
 );
 

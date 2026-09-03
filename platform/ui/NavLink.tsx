@@ -19,7 +19,7 @@ export function NavLink({
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition ${
+      className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold outline-none transition focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-white/60 ${
         active
           ? "bg-white/10 text-white"
           : "text-white/55 hover:bg-white/[0.06] hover:text-white"

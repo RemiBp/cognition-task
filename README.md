@@ -2,7 +2,7 @@
 
 An owned alternative to a low-code internal tool platform (Power Apps / Retool), built with Devin in ~2 hours as a proof of concept for a Series C fintech.
 
-The bet behind it: the expensive part of Power Apps is not the screen builder, it is the platform underneath — identity, row-level authorization, audit, approvals, and hosted data. So this prototype builds *that* layer once, and ships the client's three existing tools as thin instances on top of it. A fourth tool is one command away.
+The bet behind it: the expensive part of Power Apps is not the screen builder, it is the platform underneath — identity, authorization, audit, approvals, and hosted data. So this prototype builds a narrow version of *that* layer once, and ships the client's three existing tools as thin instances on top of it. A fourth CRUD-shaped tool is one command away.
 
 ## What it does
 
@@ -10,6 +10,7 @@ Platform layer (`platform/`)
 
 - **Auth seam** — a demo session cookie today, shaped so a real OIDC callback (Entra ID, Okta) drops in without touching call sites. Group→role mapping is the only integration point.
 - **Server-side RBAC** — four roles (`viewer`, `analyst`, `approver`, `admin`). Permissions are checked inside the action layer, never in the browser, so hiding a button is cosmetic and not a control.
+- **Runtime-safe actions** — every client payload is validated with Zod and its audit resource id is derived server-side, so TypeScript types are not mistaken for a trust boundary.
 - **Append-only audit log** — every mutation writes actor, role, action, resource, before/after snapshot, reason and request id. Denied attempts are logged too.
 - **Maker-checker approvals** — a reusable primitive. An action declared `requiresApproval` never mutates directly: it creates an approval request, and a second human with `approver`/`admin` executes it. Self-approval is rejected server-side.
 - **Typed data layer** — Prisma schema is the single source of truth for tables, and generated types flow into pages and actions.
@@ -25,13 +26,16 @@ Apps (`app/`)
 
 ## Run it
 
-Requires Node 20+.
+Requires Node 20.9+.
 
 ```bash
 npm install
 npm run setup   # prisma db push + seed (SQLite, no external services)
 npm run dev
 ```
+
+`npm test` exercises the highest-risk governance paths: denied actions, runtime payload validation,
+duplicate proposals, self-approval and second-person execution.
 
 Open http://localhost:3000. The database is a local SQLite file; the Prisma datasource is the only thing to change for Postgres.
 
@@ -61,7 +65,7 @@ npm run new-app -- --slug disputes --name "Disputes queue" --purpose "Track and 
 npm run db:push
 ```
 
-The generator adds the Prisma model, an actions file with a maker-checker action registered in the policy layer, a page with server-side search and pagination, the nav entry, and the registry import. Restart the dev server and the new tool is already governed — that is the marginal-cost argument for the ten tools they plan to build.
+The generator adds the Prisma model, an actions file with a maker-checker action registered in the policy layer, a page with server-side search and pagination, the nav entry, and the registry import. Restart the dev server and the new tool inherits the platform controls — that is the marginal-cost argument for the CRUD-shaped portion of the ten-tool roadmap. Integrations and novel workflows still require engineering and review.
 
 ## What this is not
 

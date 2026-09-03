@@ -25,7 +25,7 @@ export default async function Home() {
       <PageHeader
         title="Internal Tools Platform"
         eyebrow="Owned platform"
-        subtitle="Three internal apps sharing one owned platform layer: authentication, role-based access, maker-checker approvals and an append-only audit log. Adding the fourth app is a single command."
+        subtitle="Three internal apps sharing one owned platform layer: an identity seam, role-based access, maker-checker approvals and an append-only audit log. Adding a fourth CRUD-shaped app is a single command."
       />
 
       <div className="mb-8 grid grid-cols-5 gap-3">
@@ -53,9 +53,18 @@ export default async function Home() {
                 </span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-muted">{app.purpose}</p>
+              <div className="mt-5 flex items-center gap-2 border-t border-line pt-3.5 text-[11px] font-bold text-brand-900">
+                <span
+                  aria-hidden
+                  className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-50 text-[9px]"
+                >
+                  ✓
+                </span>
+                {app.control}
+              </div>
               {app.replaces && (
-                <p className="mt-5 border-t border-line pt-3.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
-                  Replaces {app.replaces}
+                <p className="mt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
+                  Prototype scope · {app.replaces.replace("Power Apps — ", "")}
                 </p>
               )}
             </Card>

@@ -63,7 +63,11 @@ export default async function KycPage({
         </span>
       ),
     },
-    { header: "Document", cell: (row) => row.documentType },
+    {
+      header: "Document",
+      className: "hidden xl:table-cell",
+      cell: (row) => row.documentType.replaceAll("_", " "),
+    },
     { header: "Status", cell: (row) => <StatusBadge value={row.status} /> },
     {
       header: "Submitted",

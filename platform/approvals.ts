@@ -52,8 +52,11 @@ export async function decide(
     );
   }
 
-  await db.approvalRequest.update({
-    where: { id: approvalId },
+  // Compare-and-set the pending state. The earlier read gives us the payload,
+  // while this guarded write prevents two approvers from deciding the same
+  // request concurrently.
+  const claimed = await db.approvalRequest.updateMany({
+    where: { id: approvalId, status: "pending" },
     data: {
       status: decision,
       decidedById: actor.id,
@@ -61,6 +64,7 @@ export async function decide(
       decisionNote: note,
     },
   });
+  if (claimed.count !== 1) throw new Error("Approval request already decided");
 
   await writeAudit({
     actor,

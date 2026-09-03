@@ -27,6 +27,6 @@ $250K/year ≈ **~1,000 Premium seats**, or a mix of per-app licenses plus capac
 
 ## The honest conclusion
 
-The license saving roughly funds the platform engineer. **Build-vs-buy here is not a cost-reduction decision.** It becomes financially attractive only in the 10+ app world, and even then the gain shows up as near-zero marginal cost per tool rather than as a $250K line disappearing from the budget.
+The license saving roughly funds the platform engineer. **Build-vs-buy here is not automatically a cost-reduction decision.** It becomes economically plausible in the 10+ app world, but the marginal cost is low only for tools that fit the shared CRUD/workflow conventions. Novel integrations, controls and operating work remain real costs.
 
 The defensible reasons to build are control, correctness at data scale, testability, and customization. If the client's board is told "we saved $250K", that claim will not survive the first year.

@@ -36,12 +36,11 @@ export default async function ApprovalsPage() {
         )}
         {pending.map((request) => (
           <Card key={request.id} className="border-l-2 border-l-brand-900">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <div className="text-[15px] font-bold text-ink">{request.summary}</div>
                 <div className="mt-1 text-xs text-muted">
-                  <span className="font-mono">{request.action}</span> · proposed by{" "}
-                  {request.requestedBy.name} ({request.requestedBy.role}) ·{" "}
+                  Requested by {request.requestedBy.name} ({request.requestedBy.role}) ·{" "}
                   {request.createdAt.toISOString().slice(0, 16).replace("T", " ")}
                 </div>
               </div>
