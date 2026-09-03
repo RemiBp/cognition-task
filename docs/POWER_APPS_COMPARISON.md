@@ -42,19 +42,20 @@ SQLite, and there is no reporting or automation surface.
 - **Governance is per-record, not per-action.** Security roles and record ownership answer "who can
   see or edit this row", not "who may approve a refund above 500 EUR".
 - **Storage is a live constraint.** The tenant surfaced a permanent banner: less than 15% Dataverse
-  capacity remaining. Capacity, not seats alone, is a cost lever nobody models up front.
+  capacity remaining. Capacity therefore deserves separate modelling rather than being inferred
+  from seat count.
 - **Locale is not app-scoped.** The maker portal renders in English while the published app renders
   in French (`Enregistrer`, `Nb de lignes`, `Actualiser`) because it follows the user's tenant
   language. Mixed-language internal tooling is not something the app author controls cheaply.
 - **Reviewability is available, not automatic.** Power Platform solutions can be exported or
   synchronized to Git, represented as source-controlled YAML, promoted through pipelines and
-  tested with Test Studio. The 20-minute maker path did not create that ALM discipline for us;
+  tested with Test Studio ([source control](https://learn.microsoft.com/en-us/power-platform/alm/use-source-control-solution-files), [Test Studio](https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/test-studio)). The 20-minute maker path did not create that ALM discipline for us;
   it has to be established and enforced. Conventional application code still produces a more
   direct and familiar review surface for this engineering team.
 
 ## Delegation nuance
 
-The 500-row default (2,000 maximum) applies when a **canvas app** uses a Power Fx expression that
+The [500-row default (2,000 maximum)](https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/delegation-overview) applies when a **canvas app** uses a Power Fx expression that
 cannot be delegated to its data source. It can produce incomplete results and is a genuine
 correctness risk, but Power Apps Studio surfaces delegation warnings and well-designed queries can
 avoid it. The model-driven Dataverse list built for this comparison uses server-side views, so its
