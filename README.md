@@ -21,6 +21,7 @@ Apps (`app/`)
 - `/kyc` — KYC review queue. Decisions require a second approver; escalation is immediate but audited.
 - `/refunds` — refunds dashboard with pending exposure. Approvals go through maker-checker, rejections are direct.
 - `/flags` — feature flag admin. Admin-only, immediate, and routed through the shared audit path.
+- `/disputes` — card disputes queue for support. A refund is proposed and executed by a second approver; closing without a refund is admin-only.
 - `/approvals` — the shared approval inbox.
 - `/audit` — the shared audit trail with before/after diffs.
 
@@ -57,6 +58,13 @@ Switch identity with the menu in the header (this stands in for SSO):
 3. Switch to **approver** → `/approvals` shows it. Add a decision note and approve it.
 4. Open `/audit` → the trail shows the denied flag attempt, KYC proposal, approval rationale and before/after change.
 5. The self-approval invariant is covered in `tests/governance.test.ts`; the default demo roles do not provide a clean UI path to reproduce it.
+
+The same trail is readable from a terminal, which is useful when demoing side by side with the UI:
+
+```bash
+npm run audit                                    # last 20 entries
+npm run audit -- --resource dispute --watch       # follow one app live
+```
 
 ## Adding app #4
 

@@ -106,3 +106,14 @@ model FeatureFlag {
   updatedAt      DateTime @updatedAt
 }
 
+model Dispute {
+  id           String   @id @default(cuid())
+  reference    String   @unique
+  customerName String
+  amountCents  Int
+  currency     String   @default("EUR")
+  reason       String
+  status       String   @default("open") // open | refunded | closed
+  processorRef String?
+  openedAt     DateTime @default(now())
+}

@@ -6,5 +6,6 @@
 import "@/app/kyc/actions";
 import "@/app/refunds/actions";
 import "@/app/flags/actions";
+import "@/app/disputes/actions";
 
 export {};

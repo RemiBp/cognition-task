@@ -14,6 +14,14 @@ const REFUND_REASONS = [
   "customer goodwill",
 ];
 
+const DISPUTE_REASONS = [
+  "fraudulent transaction",
+  "product not received",
+  "subscription not cancelled",
+  "amount differs from receipt",
+  "duplicate processing",
+];
+
 const pick = <T,>(list: T[], index: number) => list[index % list.length];
 
 async function main() {
@@ -22,6 +30,7 @@ async function main() {
   await db.kycCase.deleteMany();
   await db.refund.deleteMany();
   await db.featureFlag.deleteMany();
+  await db.dispute.deleteMany();
   await db.user.deleteMany();
 
   await db.user.createMany({
@@ -59,6 +68,19 @@ async function main() {
     })),
   });
 
+  await db.dispute.createMany({
+    data: Array.from({ length: 60 }, (_, i) => ({
+      reference: `DSP-${String(50_000 + i * 17)}`,
+      customerName: `${pick(FIRST, i * 3)} ${pick(LAST, i * 7)}`,
+      amountCents: 2_400 + ((i * 6_133) % 180_000),
+      currency: i % 9 === 0 ? "GBP" : "EUR",
+      reason: pick(DISPUTE_REASONS, i),
+      status: i % 6 === 0 ? "refunded" : i % 9 === 0 ? "closed" : "open",
+      openedAt: new Date(Date.now() - i * 7_200_000),
+      processorRef: i % 6 === 0 ? `psp_dsp-${50_000 + i * 17}` : null,
+    })),
+  });
+
   await db.featureFlag.createMany({
     data: [
       { key: "instant_payouts", description: "Same-day payout rail for verified merchants", enabled: true, rolloutPercent: 100 },
@@ -75,6 +97,7 @@ async function main() {
     kycCases: await db.kycCase.count(),
     refunds: await db.refund.count(),
     flags: await db.featureFlag.count(),
+    disputes: await db.dispute.count(),
   };
   console.log("Seeded", counts);
 }
