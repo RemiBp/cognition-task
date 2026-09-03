@@ -33,4 +33,10 @@ export const APPS: AppDescriptor[] = [
     control: "Admin only · immediate · audited",
     replaces: "Power Apps — Feature flag admin panel",
   },
+  {
+    slug: "disputes",
+    name: "Disputes queue",
+    purpose: "Track and resolve card disputes.",
+    control: "Money movement · maker-checker",
+  },
 ];

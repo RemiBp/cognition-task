@@ -21,6 +21,7 @@ Apps (`app/`)
 - `/kyc` — KYC review queue. Decisions require a second approver; escalation is immediate but audited.
 - `/refunds` — refunds dashboard with pending exposure. Approvals go through maker-checker, rejections are direct.
 - `/flags` — feature flag admin. Admin-only, immediate, and routed through the shared audit path.
+- `/disputes` — card disputes queue for support. A refund is proposed and executed by a second approver; closing without a refund is admin-only.
 - `/approvals` — the shared approval inbox.
 - `/audit` — the shared audit trail with before/after diffs.
 
