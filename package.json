@@ -16,7 +16,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "presetup": "tsx scripts/ensure-env.ts",
     "setup": "prisma db push && tsx prisma/seed.ts",
-    "new-app": "tsx scripts/new-app.ts"
+    "new-app": "tsx scripts/new-app.ts",
+    "audit": "tsx scripts/audit-tail.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",

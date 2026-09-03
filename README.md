@@ -59,6 +59,13 @@ Switch identity with the menu in the header (this stands in for SSO):
 4. Open `/audit` → the trail shows the denied flag attempt, KYC proposal, approval rationale and before/after change.
 5. The self-approval invariant is covered in `tests/governance.test.ts`; the default demo roles do not provide a clean UI path to reproduce it.
 
+The same trail is readable from a terminal, which is useful when demoing side by side with the UI:
+
+```bash
+npm run audit                                    # last 20 entries
+npm run audit -- --resource dispute --watch       # follow one app live
+```
+
 ## Adding app #4
 
 ```bash
