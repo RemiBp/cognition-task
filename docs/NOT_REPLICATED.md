@@ -18,7 +18,7 @@ Written for the VP of Engineering, deliberately unflattering to the build case.
 
 ## Risks I would flag before committing
 
-- **Platform drift.** The primitives are clean at three apps. At thirteen, with staff turnover, they stay clean only if someone owns them. Budget the owner explicitly.
+- **Platform drift.** The primitives are clean at four apps. At thirteen, with staff turnover, they stay clean only if someone owns them. Budget the owner explicitly.
 - **Narrow test coverage.** Six automated tests cover denied actions, invalid payloads, duplicate proposals, self-approval, second-person execution and concurrent approval clicks. Production still needs failure-recovery, broader concurrency, integration and end-to-end coverage before this can touch real money.
 - **Transaction boundaries.** The approval claim prevents two deciders from executing the same request, but approval state, business mutation and audit are not yet one atomic unit. Recovery and idempotency need explicit design.
 - **Agent-generated code still needs review.** Devin reduces initial scaffolding effort; it does not remove integration, review or operational ownership. Review capacity is a real constraint on the 10-app plan.
