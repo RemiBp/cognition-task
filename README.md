@@ -2,7 +2,7 @@
 
 An owned alternative to a low-code internal tool platform (Power Apps / Retool). The initial working slice was built with Devin in roughly two hours as a proof of concept for a Series C fintech.
 
-The bet behind it: the expensive part of Power Apps is not the screen builder, it is the platform underneath — identity, authorization, audit, approvals, and hosted data. This prototype builds a narrow version of *that* layer once, then uses the client's three existing tools to exercise it. A fourth CRUD-shaped workflow can be scaffolded with one command; integrations and novel workflows still require engineering.
+The bet behind it: the expensive part of Power Apps is not the screen builder, it is the platform underneath — identity, authorization, audit, approvals, and hosted data. This prototype builds a narrow version of *that* layer once, then uses the client's three existing tools to exercise it. A fourth workflow, `/disputes`, was then scaffolded from that layer with one command to show what the next tool costs; integrations and novel workflows still require engineering.
 
 ## What it does
 
@@ -66,10 +66,12 @@ npm run audit                                    # last 20 entries
 npm run audit -- --resource dispute --watch       # follow one app live
 ```
 
-## Adding app #4
+## Adding the next app
+
+`/disputes` was built this way. The next one starts the same:
 
 ```bash
-npm run new-app -- --slug disputes --name "Disputes queue" --purpose "Track and resolve card disputes."
+npm run new-app -- --slug chargebacks --name "Chargebacks queue" --purpose "Track and contest card chargebacks."
 npm run db:push
 ```
 
