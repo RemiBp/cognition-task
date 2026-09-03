@@ -25,7 +25,7 @@ export default async function Home() {
       <PageHeader
         title="Internal Tools Platform"
         eyebrow="Owned platform"
-        subtitle="Three internal apps sharing one owned platform layer: an identity seam, role-based access, maker-checker approvals and an append-only audit log. Adding a fourth CRUD-shaped app is a single command."
+        subtitle="Three internal apps sharing one owned platform layer: an identity seam, role-based access, maker-checker approvals and a central action audit. A fourth known-shape workflow can be scaffolded from the same conventions."
       />
 
       <div className="mb-8 grid grid-cols-5 gap-3">

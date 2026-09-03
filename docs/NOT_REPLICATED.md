@@ -8,11 +8,11 @@ Written for the VP of Engineering, deliberately unflattering to the build case.
 - **Inherited compliance posture.** Microsoft's certifications, DPA, data residency options and audit attestations come with the subscription. Owning the platform means the client's own controls are what an auditor examines.
 - **DLP and tenant-wide governance.** Power Platform DLP policies constrain what every app in the tenant may connect to. There is no equivalent here; it would have to be built or enforced by review.
 - **Someone else's on-call.** Availability, patching and upgrades become the client's problem, permanently.
-- **The connector library.** ~1,000 pre-built connectors, including gateways to on-premise SQL. Each integration here is bespoke work — usually small, never free.
+- **The connector library.** Power Platform offers [more than 1,000 connectors](https://learn.microsoft.com/en-us/connectors/), including gateways to on-premise systems. Each integration here is bespoke work — sometimes small, never free.
 
 ## Present as a seam, not as a real implementation
 
-- **Authentication.** The role switcher stores a demo user id in an unsigned, HTTP-only cookie; it is not authentication. Production needs a real OIDC callback, a signed session, and IdP-group→role mapping. This is a known, bounded piece of work, but it is not done.
+- **Authentication.** The role switcher stores a demo user id in an unsigned, HTTP-only cookie; it is not authentication. Production needs a real OIDC callback, a signed session, IdP-group→role mapping and lifecycle testing. The integration seam is visible, but the production work is not done.
 - **Append-only audit.** Enforced by having no delete path in the code. Production should enforce it at the database (revoked DELETE/UPDATE grants, or an external write-once sink).
 - **Data store.** SQLite for zero-setup review; Postgres for anything real. Row-level security, encryption at rest and backups are not configured.
 
@@ -20,4 +20,5 @@ Written for the VP of Engineering, deliberately unflattering to the build case.
 
 - **Platform drift.** The primitives are clean at three apps. At thirteen, with staff turnover, they stay clean only if someone owns them. Budget the owner explicitly.
 - **Narrow test coverage.** Six automated tests cover denied actions, invalid payloads, duplicate proposals, self-approval, second-person execution and concurrent approval clicks. Production still needs failure-recovery, broader concurrency, integration and end-to-end coverage before this can touch real money.
-- **Agent-generated code still needs review.** Devin makes the marginal app nearly free to write; it does not make it free to review. The review budget is the real constraint on the 10-app plan.
+- **Transaction boundaries.** The approval claim prevents two deciders from executing the same request, but approval state, business mutation and audit are not yet one atomic unit. Recovery and idempotency need explicit design.
+- **Agent-generated code still needs review.** Devin reduces initial scaffolding effort; it does not remove integration, review or operational ownership. Review capacity is a real constraint on the 10-app plan.
