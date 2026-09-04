@@ -2,28 +2,28 @@
 
 An owned alternative to a low-code internal tool platform (Power Apps / Retool). The initial working slice was built with Devin in roughly two hours as a proof of concept for a Series C fintech.
 
-The bet behind it: the expensive part of Power Apps is not the screen builder, it is the platform underneath — identity, authorization, audit, approvals, and hosted data. This prototype builds a narrow version of *that* layer once, then uses the client's three existing tools to exercise it. A fourth workflow, `/disputes`, was then scaffolded from that layer with one command to show what the next tool costs; integrations and novel workflows still require engineering.
+The bet behind it: the expensive part of Power Apps is not the screen builder, it is the platform underneath, meaning identity, authorization, audit, approvals and hosted data. This prototype builds a narrow version of *that* layer once, then uses the client's three existing tools to exercise it. A fourth workflow, `/disputes`, was then scaffolded from that layer with one command to show what the next tool costs; integrations and novel workflows still require engineering.
 
 ## What it does
 
 Platform layer (`platform/`)
 
-- **Auth seam** — a demo session cookie today, shaped so a real OIDC callback (Entra ID, Okta) drops in without touching call sites. Group→role mapping is the only integration point.
-- **Server-side RBAC** — four roles (`viewer`, `analyst`, `approver`, `admin`). Permissions are checked inside the action layer, never in the browser, so hiding a button is cosmetic and not a control.
-- **Runtime-safe actions** — every client payload is validated with Zod and its audit resource id is derived server-side, so TypeScript types are not mistaken for a trust boundary.
-- **Central action audit** — every mutation writes actor, role, action, resource, before/after snapshot, reason and request id. Denied attempts are logged too. The prototype has no update/delete path; production still needs database-enforced immutability or an external audit sink.
-- **Maker-checker approvals** — a reusable primitive. An action declared `requiresApproval` never mutates directly: it creates an approval request, and a second human with `approver`/`admin` executes it. Self-approval is rejected server-side.
-- **Typed data layer** — Prisma schema is the single source of truth for tables, and generated types flow into pages and actions.
-- **UI kit** — server-paginated data table with search, status badges, cards, and an action button that round-trips through the policy layer.
+- **Auth seam.** A demo session cookie today, shaped so a real OIDC callback (Entra ID, Okta) drops in without touching call sites. Group→role mapping is the only integration point.
+- **Server-side RBAC.** Four roles (`viewer`, `analyst`, `approver`, `admin`). Permissions are checked inside the action layer, never in the browser, so hiding a button is cosmetic and not a control.
+- **Runtime-safe actions.** Every client payload is validated with Zod and its audit resource id is derived server-side, so TypeScript types are not mistaken for a trust boundary.
+- **Central action audit.** Every mutation writes actor, role, action, resource, before/after snapshot, reason and request id. Denied attempts are logged too. The prototype has no update/delete path; production still needs database-enforced immutability or an external audit sink.
+- **Maker-checker approvals.** A reusable primitive. An action declared `requiresApproval` never mutates directly: it creates an approval request, and a second human with `approver`/`admin` executes it. Self-approval is rejected server-side.
+- **Typed data layer.** The Prisma schema is the single source of truth for tables, and generated types flow into pages and actions.
+- **UI kit.** Server-paginated data table with search, status badges, cards, and an action button that round-trips through the policy layer.
 
 Apps (`app/`)
 
-- `/kyc` — KYC review queue. Decisions require a second approver; escalation is immediate but audited.
-- `/refunds` — refunds dashboard with pending exposure. Approvals go through maker-checker, rejections are direct.
-- `/flags` — feature flag admin. Admin-only, immediate, and routed through the shared audit path.
-- `/disputes` — card disputes queue for support. A refund is proposed and executed by a second approver; closing without a refund is admin-only.
-- `/approvals` — the shared approval inbox.
-- `/audit` — the shared audit trail with before/after diffs.
+- `/kyc`: KYC review queue. Decisions require a second approver; escalation is immediate but audited.
+- `/refunds`: refunds dashboard with pending exposure. Approvals go through maker-checker, rejections are direct.
+- `/flags`: feature flag admin. Admin-only, immediate, and routed through the shared audit path.
+- `/disputes`: card disputes queue for support. A refund is proposed and executed by a second approver; closing without a refund is admin-only.
+- `/approvals`: the shared approval inbox.
+- `/audit`: the shared audit trail with before/after diffs.
 
 ## Run it
 
@@ -79,6 +79,6 @@ The generator adds the Prisma model, an action registered in the policy layer, a
 
 ## What this is not
 
-See [`docs/NOT_REPLICATED.md`](docs/NOT_REPLICATED.md) for the honest list — citizen development, connector library, inherited compliance, on-call. [`docs/COST_MODEL.md`](docs/COST_MODEL.md) has the seat math, and [`KEY_DECISIONS.md`](KEY_DECISIONS.md) the scope and architecture rationale.
+See [`docs/NOT_REPLICATED.md`](docs/NOT_REPLICATED.md) for the honest list: citizen development, connector library, inherited compliance, on-call. [`docs/COST_MODEL.md`](docs/COST_MODEL.md) has the seat math, and [`KEY_DECISIONS.md`](KEY_DECISIONS.md) the scope and architecture rationale.
 
 The same KYC queue was also built in a live Power Apps tenant and timed, so the comparison is first-hand: [`docs/POWER_APPS_COMPARISON.md`](docs/POWER_APPS_COMPARISON.md).

@@ -8,7 +8,7 @@ Written for the VP of Engineering, deliberately unflattering to the build case.
 - **Inherited compliance posture.** Microsoft's certifications, DPA, data residency options and audit attestations come with the subscription. Owning the platform means the client's own controls are what an auditor examines.
 - **DLP and tenant-wide governance.** Power Platform DLP policies constrain what every app in the tenant may connect to. There is no equivalent here; it would have to be built or enforced by review.
 - **Someone else's on-call.** Availability, patching and upgrades become the client's problem, permanently.
-- **The connector library.** Power Platform offers [more than 1,000 connectors](https://learn.microsoft.com/en-us/connectors/), including gateways to on-premise systems. Each integration here is bespoke work — sometimes small, never free.
+- **The connector library.** Power Platform offers [more than 1,000 connectors](https://learn.microsoft.com/en-us/connectors/), including gateways to on-premise systems. Each integration here is bespoke work: sometimes small, never free.
 
 ## Present as a seam, not as a real implementation
 

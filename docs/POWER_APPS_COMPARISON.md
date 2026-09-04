@@ -1,7 +1,7 @@
 # What Power Apps actually gave us in 20 minutes
 
-We did not evaluate Power Apps from documentation. We built the same use case — a KYC review
-queue — in a live Power Apps tenant (Dataverse, model-driven app) and timed it. This is what we
+We did not evaluate Power Apps from documentation. We built the same use case, a KYC review
+queue, in a live Power Apps tenant (Dataverse, model-driven app) and timed it. This is what we
 observed, so the comparison below is first-hand rather than inferred.
 
 ## What we built there
@@ -20,7 +20,7 @@ Elapsed time: about 20 minutes, most of it waiting on Dataverse provisioning and
 
 - A typed table with generated views and forms, sortable columns, keyword filter, column and
   filter editors exposed to the end user at runtime.
-- Per-record ownership, record sharing, an "check access" command, and assignment — record-level
+- Per-record ownership, record sharing, a "check access" command, and assignment: record-level
   security primitives that come from Dataverse, not from the app.
 - Entra ID identity, hosting, backup, and Microsoft's compliance posture.
 - Entry points to Power Automate flows and "visualize this view in Power BI" from the same toolbar.
@@ -63,8 +63,8 @@ result set should not be presented as subject to the same client-side truncation
 
 ## Honest read
 
-For the shape of app we built — a list, a form, a status field — Power Apps is faster than us and
-will stay faster. Twenty minutes with no code, and the end user gets column and filter editing we
+For the shape of app we built, a list with a form and a status field, Power Apps is faster than us
+and will stay faster. Twenty minutes with no code, and the end user gets column and filter editing we
 would have to build.
 
 The moment the requirement is "this decision needs two people and a defensible trail", the
