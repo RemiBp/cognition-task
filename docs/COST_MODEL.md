@@ -6,15 +6,15 @@ All Power Apps list prices below are Microsoft's public US prices at the time of
 
 | Line | List price | Note |
 | --- | --- | --- |
-| Power Apps Premium | $20 / user / month | $12 at 2,000+ seats |
-| Power Apps per-app | $5 / user / app / month | cheap per app, multiplies with app count |
-| Dataverse capacity and other add-ons | contract-dependent | model separately from seat count |
+| Power Apps Premium | $22 / user / month, paid yearly | $14 with a 2,000-seat minimum |
+| Dataverse Database capacity add-on | $40 / GB / month, paid yearly | pooled at tenant level, model separately from seat count |
+| Per-app licensing | not listed on the public pricing page | legacy or contract-dependent; price it from the client's own agreement |
 
-$250K/year ≈ **~1,000 Premium seats**, or a mix of per-app licenses plus capacity. The important consequence: the bill scales with the number of *tool users* — ops, compliance, support, finance — not with the 60 engineers.
+$250K/year ≈ **~950 Premium seats at list**, or fewer seats plus capacity add-ons. The important consequence: the bill scales with the number of *tool users*, meaning ops, compliance, support and finance, not with the 60 engineers.
 
 ## What 13 apps does to each option
 
-**Buy.** Under per-app licensing, cost grows roughly with (users × apps). Ten more tools rolled out to overlapping ops populations is the scenario where the per-app model pushes you onto Premium seats for everyone, i.e. a step change, not a gradual one.
+**Buy.** Where per-app licensing is in play, cost grows roughly with (users × apps). Ten more tools rolled out to overlapping ops populations is the scenario that pushes you onto Premium seats for everyone, i.e. a step change, not a gradual one. Past 2,000 seats the $14 tier softens that step, so the crossover depends on how wide the rollout goes.
 
 **Build.** Cost is dominated by a fixed platform cost, not per-app cost:
 
