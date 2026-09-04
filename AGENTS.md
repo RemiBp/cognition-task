@@ -1,6 +1,6 @@
 # Working in this repo
 
-Read this before adding a tool. It exists so that a new app — written by a person or by Devin — is governed without anyone remembering to make it so.
+Read this before adding a tool. It exists so that a new app, written by a person or by Devin, is governed without anyone remembering to make it so.
 
 ## Rules
 
@@ -18,7 +18,7 @@ npm run new-app -- --slug <slug> --name "<Name>" --purpose "<one line>"
 npm run db:push
 ```
 
-Restart `npm run dev` after `db:push` — a running server holds the old Prisma client and the new
+Restart `npm run dev` after `db:push`: a running server holds the old Prisma client and the new
 route will throw. Then extend the generated Prisma model with the real fields, adjust the generated
 actions and table columns, and run `npm run typecheck && npm run lint`.
 
