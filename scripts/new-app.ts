@@ -58,12 +58,19 @@ if (!schema.includes(`model ${pascal} {`)) {
 // 2. Action with its own policy, inheriting audit + approvals ---------------
 writeFileSync(
   join(appDir, "actions.ts"),
-  `import { registerAction } from "@/platform/actions";
+  `import { INTENT_KEY, registerAction } from "@/platform/actions";
 import { ConflictError } from "@/platform/rbac";
 import { registerPolicy, registerResourceLoader } from "@/platform/policy";
 import { z } from "zod";
 
-type Payload = { id: string; expectedVersion: number; status: "resolved" | "dismissed" };
+// intentKey identifies one submit: a retry of it reuses the proposal already
+// created, a deliberate second attempt carries a new one.
+type Payload = {
+  id: string;
+  expectedVersion: number;
+  status: "resolved" | "dismissed";
+  intentKey: string;
+};
 
 registerResourceLoader("${snake}", (client, id) =>
   client.${camel}.findUnique({ where: { id }, select: { id: true, status: true, version: true } }),
@@ -94,9 +101,11 @@ export const resolve${pascal} = registerAction<Payload>({
     id: z.string().min(1),
     expectedVersion: z.number().int().nonnegative(),
     status: z.enum(["resolved", "dismissed"]),
+    intentKey: INTENT_KEY,
   }),
   resourceId: ({ id }) => id,
   expectedVersion: ({ expectedVersion }) => expectedVersion,
+  intentKey: ({ intentKey }) => intentKey,
   requiresApproval: true,
   describe: ({ status }) => \`Mark ${camel} as \${status}\`,
   subject: async ({ id }, client) => {
@@ -123,7 +132,12 @@ export const resolve${pascal} = registerAction<Payload>({
 // 3. Page built from the shared table --------------------------------------
 writeFileSync(
   join(appDir, "page.tsx"),
-  `import { activeProposalsFor } from "@/platform/approvals";
+  `// Importing the actions module is what registers this app's policy and
+// resource loader. The server action file is a separate module graph, so a
+// page that only references the action through a form would render before the
+// policy exists and show "No policy is declared for this action".
+import "./actions";
+import { activeProposalsFor } from "@/platform/approvals";
 import { getActor } from "@/platform/auth";
 import { db } from "@/platform/db";
 import { ActionControls, type ActionOption } from "@/platform/ui/ActionControls";

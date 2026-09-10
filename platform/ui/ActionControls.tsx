@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { runAction } from "@/app/actions";
 import { ActionToast } from "./ActionToast";
 
@@ -39,6 +39,15 @@ export function ActionControls({
   const [running, setRunning] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [reason, setReason] = useState("");
+  /**
+   * One identifier per intent to submit, kept until that submit succeeds.
+   *
+   * A retry after a lost response carries the same value, so the server
+   * answers with the proposal it already created instead of opening a second
+   * one; deciding to propose again later produces a new value, which the
+   * server is right to treat as a new proposal.
+   */
+  const intents = useRef(new Map<string, string>());
 
   useEffect(() => {
     if (!message) return;
@@ -54,15 +63,26 @@ export function ActionControls({
 
   const submit = (action: ActionOption) =>
     startTransition(async () => {
+      const controlKey = action.actionKey + String(action.payload.decision ?? "");
       setMessage(null);
-      setRunning(action.actionKey + String(action.payload.decision ?? ""));
+      setRunning(controlKey);
+      let intentKey = intents.current.get(controlKey);
+      if (!intentKey) {
+        intentKey = crypto.randomUUID();
+        intents.current.set(controlKey, intentKey);
+      }
       try {
-        const payload = action.requiresReason
-          ? { ...action.payload, reasoning: reason.trim() }
-          : action.payload;
+        const payload = {
+          ...action.payload,
+          intentKey,
+          ...(action.requiresReason ? { reasoning: reason.trim() } : {}),
+        };
         const result = await runAction(action.actionKey, payload);
         setMessage(result);
-        if (result.ok) setReason("");
+        if (result.ok) {
+          intents.current.delete(controlKey);
+          setReason("");
+        }
         router.refresh();
       } catch {
         setMessage({ ok: false, text: "The action could not be completed. Please retry." });

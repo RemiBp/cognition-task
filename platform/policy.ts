@@ -46,7 +46,7 @@ type ActionPolicy = {
 };
 
 const AWAITING = "A proposal on this record is awaiting independent approval.";
-const SENIOR_NEXT = "This case is escalated; senior review is explicitly the next step.";
+const SENIOR_NEXT = "This case is escalated; senior review is the next step.";
 const READ_ONLY = "Your role is read-only for this record.";
 const SETTLED = "This record is already settled and cannot be reopened.";
 
@@ -72,9 +72,13 @@ const kycEscalate: ActionPolicy["evaluate"] = ({ actor, state }) => {
   const record = state.record;
   if (!record) return { available: false, reason: "This case no longer exists." };
   if (actor.role === "viewer") return { available: false, reason: READ_ONLY };
+  // An open proposal is what the case is waiting on, whatever state it is in.
+  // Checking it before the state keeps one answer on the page: an escalated
+  // case under proposal reads as awaiting approval, not as awaiting an
+  // escalation that has already happened.
+  if (blockedByProposal(state)) return { available: false, reason: AWAITING };
   if (record.status === "escalated") return { available: false, reason: SENIOR_NEXT };
   if (record.status !== "pending") return { available: false, reason: SETTLED };
-  if (blockedByProposal(state)) return { available: false, reason: AWAITING };
   return { available: true };
 };
 

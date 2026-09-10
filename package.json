@@ -17,6 +17,7 @@
     "presetup": "tsx scripts/ensure-env.ts && tsx scripts/check-db-revision.ts",
     "setup": "prisma db push && tsx prisma/seed.ts",
     "new-app": "tsx scripts/new-app.ts",
+    "smoke:generator": "tsx scripts/generator-smoke.ts",
     "upgrade": "tsx scripts/upgrade-policy-v2.ts",
     "demo:reset": "DATABASE_URL=\"file:./demo.db\" prisma db push --skip-generate --force-reset",
     "demo:journey": "DATABASE_URL=\"file:./demo.db\" tsx scripts/demo-journey.ts",

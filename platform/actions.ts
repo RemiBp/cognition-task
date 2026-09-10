@@ -13,10 +13,15 @@ import { ConflictError, PolicyError, type Actor, type Role } from "./rbac";
  * The single chokepoint through which every mutation in every app passes.
  *
  * This is the part of Power Apps / Dataverse that is expensive to give up and
- * cheap to forget when building in-house: an app author cannot write to the
- * database without a policy check, a precondition re-check, an audit record
- * and, where declared, maker-checker approval, because there is no other way
- * to write.
+ * cheap to forget when building in-house: a write that goes through here gets
+ * a policy check, a precondition re-check, an audit record and, where
+ * declared, maker-checker approval.
+ *
+ * It is the only path the apps use, not the only path that exists. Prisma is
+ * importable anywhere in the process, so an app that called `db.*.update()`
+ * directly would bypass all of this. AGENTS.md forbids it and review catches
+ * it; in a real deployment the boundary is the database account the
+ * application runs as, not this file.
  *
  * Three properties the first version did not have:
  *  - the domain change and its audit entry commit in one transaction, through
@@ -50,6 +55,12 @@ export type ActionDefinition<P> = {
   /** Version the payload claims to have been composed against. */
   expectedVersion: (payload: P) => number;
   /**
+   * Identifier of the user intent this payload belongs to. Required for
+   * actions that need approval: it is what separates a retry of one submit
+   * from a deliberate second attempt. See `INTENT_KEY`.
+   */
+  intentKey?: (payload: P) => string;
+  /**
    * When true the action never applies directly: it becomes a proposal that a
    * different user holding `approval.decide` must approve.
    */
@@ -67,9 +78,26 @@ export type ActionDefinition<P> = {
 const registry = new Map<string, ActionDefinition<any>>();
 
 export function registerAction<P>(definition: ActionDefinition<P>): ActionDefinition<P> {
+  if (definition.requiresApproval && !definition.intentKey) {
+    throw new Error(
+      `${definition.key} requires approval, so it must declare intentKey and validate it in its schema.`,
+    );
+  }
   registry.set(definition.key, definition);
   return definition;
 }
+
+/**
+ * Validation for the intent key an action that needs approval carries.
+ *
+ * The client mints one identifier per intent and keeps it for every retry of
+ * that intent, so the server can answer a replay with the proposal it already
+ * created, whatever happened to that proposal since. It cannot be derived from
+ * the record: a rejection leaves the record exactly as it was, so no server
+ * state distinguishes "the network retried my submit" from "I decided to
+ * propose this again". Only the caller knows which one it is.
+ */
+export const INTENT_KEY = z.string().trim().min(8).max(100);
 
 export function getAction(key: string) {
   const action = registry.get(key);
@@ -90,9 +118,19 @@ type ExecuteOptions = {
   tx?: DbClient;
 };
 
-/** Stable across key order, so an identical retry hashes identically. */
+/**
+ * Stable across key order, so an identical retry hashes identically. The
+ * intent key is excluded: this hash answers "is this the same business
+ * request", which has to stay comparable between two different intents.
+ */
 export function canonicalPayloadHash(actionKey: string, payload: unknown): string {
-  const canonical = JSON.stringify(payload, (_key, value) =>
+  const business =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? Object.fromEntries(
+          Object.entries(payload as Record<string, unknown>).filter(([key]) => key !== "intentKey"),
+        )
+      : payload;
+  const canonical = JSON.stringify(business, (_key, value) =>
     value && typeof value === "object" && !Array.isArray(value)
       ? Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)))
       : value,
@@ -109,31 +147,15 @@ function payloadReason(payload: unknown): string | undefined {
   return undefined;
 }
 
-/**
- * Identifies one intent to propose, not one payload forever.
- *
- * A replayed submit and a fresh attempt can carry byte-identical business
- * payloads and still be different things: the first is a duplicate of an open
- * proposal, the second is a new proposal made after the previous one was
- * decided. The key therefore includes an epoch, the last decision taken on the
- * record, so retries collapse only within the lifetime of the current attempt.
- */
-async function requestKeyFor(
-  client: DbClient,
+/** Scoped to the actor, so one person's key cannot address another's proposal. */
+function requestKeyFor(
   actor: Actor,
-  resource: string,
+  actionKey: string,
   resourceId: string,
-  payloadHash: string,
-): Promise<string> {
-  const lastDecided = await client.approvalRequest.findFirst({
-    where: { resource, resourceId, status: { not: "pending" } },
-    orderBy: [{ decidedAt: "desc" }, { id: "desc" }],
-    select: { id: true },
-  });
+  intentKey: string,
+): string {
   return createHash("sha256")
-    .update(
-      `${actor.id}:${resource}:${resourceId}:${payloadHash}:${lastDecided?.id ?? "first-attempt"}`,
-    )
+    .update(`${actor.id}:${actionKey}:${resourceId}:${intentKey}`)
     .digest("hex");
 }
 
@@ -244,38 +266,33 @@ export async function execute(
   };
 
   if (action.requiresApproval && !options.approvedBy) {
-    let requestKey = "";
+    const intentKey = action.intentKey!(validPayload);
+    const requestKey = requestKeyFor(actor, actionKey, canonicalResourceId, intentKey);
     try {
       return await runInTransaction(options.tx, async (client) => {
-        requestKey = await requestKeyFor(
-          client,
-          actor,
-          action.resource,
-          canonicalResourceId,
-          payloadHash,
-        );
-
-        // A replayed submit is answered before the policy is consulted: the
-        // second POST of one intent must be the same proposal, not a refusal
-        // caused by the reservation the first POST took.
+        // A replay is answered before the policy is consulted, and whatever the
+        // proposal's status is now: the second delivery of one intent must be
+        // the proposal the first delivery created, never a second proposal and
+        // never a refusal caused by the reservation it took.
         const existing = await client.approvalRequest.findUnique({ where: { requestKey } });
-        if (existing && existing.status === "pending") {
+        if (existing) {
+          if (existing.payloadHash !== payloadHash) {
+            throw new ConflictError(
+              "This request was already submitted with different content. Reload and submit again.",
+            );
+          }
           return { status: "proposed", approvalId: existing.id, reused: true } as const;
         }
 
         const active = await client.approvalRequest.findFirst({
           where: { resource: action.resource, resourceId: canonicalResourceId, activeKey: "active" },
         });
-        if (active && active.payloadHash === payloadHash && active.requestedById === actor.id) {
-          // Same person, same payload, still open: one intent, whatever the
-          // request key says. Rows upgraded from an older revision land here.
-          return { status: "proposed", approvalId: active.id, reused: true } as const;
-        }
         if (active) {
-          // Not the same intent, since the payload differs: say so instead of
-          // letting it inherit a reservation taken for another decision.
+          // A different intent on a record that is already reserved, even one
+          // proposing exactly the same thing: the open proposal is decided
+          // first, it is not silently joined.
           throw new ConflictError(
-            `A different proposal on this record is already awaiting approval: ${active.summary}. Decide it first.`,
+            `A proposal on this record is already awaiting approval: ${active.summary}. Decide it first.`,
           );
         }
 
@@ -322,15 +339,9 @@ export async function execute(
         }
       }
       if (isUniqueViolation(error, "activeKey")) {
-        // Two identical submits can race past the read above; the loser reuses
-        // the reservation the winner took, rather than reporting a conflict
-        // with itself.
-        const active = await db.approvalRequest.findFirst({
-          where: { resource: action.resource, resourceId: canonicalResourceId, activeKey: "active" },
-        });
-        if (active && active.payloadHash === payloadHash && active.requestedById === actor.id) {
-          return { status: "proposed", approvalId: active.id, reused: true };
-        }
+        // Two different intents raced past the read above. The loser reports
+        // the conflict; only a replay of its own intent, handled by the branch
+        // above, is allowed to collapse into an existing proposal.
         if (ownsAuditTrail) {
           await writeAudit({
             actor,

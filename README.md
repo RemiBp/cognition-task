@@ -8,7 +8,7 @@ The bet behind it: the expensive part of Power Apps is not the screen builder, i
 
 Platform layer (`platform/`)
 
-- **Auth seam.** A demo session cookie today, shaped so a real OIDC callback (Entra ID, Okta) drops in without touching call sites. Group→role mapping is the only integration point.
+- **Auth seam.** A demo session cookie today, shaped so a real OIDC callback (Entra ID, Okta) can replace it without touching call sites. SSO is a future integration, not something this prototype does: it would bring the callback and session handling, token lifetime and revocation, and the group→role mapping, which is the piece this code is already shaped around.
 - **Server-side RBAC.** Four roles (`viewer`, `analyst`, `approver`, `admin`). Permissions are checked inside the action layer, never in the browser, so hiding a button is cosmetic and not a control.
 - **Runtime-safe actions.** Every client payload is validated with Zod and its audit resource id is derived server-side, so TypeScript types are not mistaken for a trust boundary.
 - **Central action audit.** Every mutation writes actor, role, action, resource, before/after snapshot, reason and request id. Denied attempts are logged too. The prototype has no update/delete path; production still needs database-enforced immutability or an external audit sink.
@@ -53,14 +53,18 @@ Open http://localhost:3000. The database is a local SQLite file. A production mo
 
 ## Demo users
 
-Switch identity with the menu in the header (this stands in for SSO):
+Switch identity with the menu in the header:
 
 | User | Role | Can do |
 | --- | --- | --- |
 | `dana.viewer@northwindpay.com` | viewer | read only |
 | `sam.analyst@northwindpay.com` | analyst | propose KYC/refund decisions |
 | `priya.approver@northwindpay.com` | approver | decide pending approvals |
-| `alex.admin@northwindpay.com` | admin | everything, incl. feature flags |
+| `alex.admin@northwindpay.com` | admin | feature flags, direct dispute close, and deciding other people's proposals |
+
+Admin is not a bypass: an admin cannot approve their own proposal, and cannot move a record to a terminal state without one.
+
+Switching identity here is a demo device, not a login.
 
 ## Suggested demo path
 

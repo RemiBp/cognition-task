@@ -9,8 +9,23 @@ export const actors = {
   admin: { id: "admin", email: "admin@test.dev", name: "Admin", role: "admin" },
 } satisfies Record<string, Actor>;
 
+/**
+ * The throwaway databases these tests are allowed to empty. Running one test
+ * file by hand, without the `test` script that sets DATABASE_URL, would
+ * otherwise truncate whatever database the environment happens to point at,
+ * `dev.db` included.
+ */
+const DISPOSABLE = [/^file:\.\/test\.db$/, /^file:.*[/\\]test\.db$/];
+
 /** Truncates the isolated test database only; never a development database. */
 export async function reset() {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!DISPOSABLE.some((pattern) => pattern.test(url))) {
+    throw new Error(
+      `Refusing to empty ${url || "an unset DATABASE_URL"}. The tests only run against the ` +
+        'throwaway test.db: use `npm test`, or DATABASE_URL="file:./test.db".',
+    );
+  }
   await db.auditLog.deleteMany();
   await db.approvalRequest.deleteMany();
   await db.kycCase.deleteMany();

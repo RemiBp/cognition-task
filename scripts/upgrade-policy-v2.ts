@@ -10,18 +10,44 @@
  * adds the columns with safe defaults and backfills them first, so the push
  * that follows is a no-op on the data.
  *
- * It refuses to guess where guessing would corrupt an audit trail: a pending
- * approval with no resource id cannot be reserved, so the upgrade stops and
- * tells you to decide those proposals on the old revision first.
+ * Everything it could refuse is checked before it writes anything, because a
+ * refusal halfway through leaves a database that is neither revision. The
+ * checks it makes are about proposals that are still open: a pending proposal
+ * whose payload cannot satisfy the current action schema would be undecidable
+ * after the upgrade, holding a reservation on a record nobody can act on. The
+ * script does not invent the missing fields, in particular not a reason
+ * somebody never wrote. It reports them, and `--release-incompatible` rejects
+ * those proposals on the old revision so the work can be proposed again after
+ * the upgrade.
  */
-import { canonicalPayloadHash } from "@/platform/actions";
+import "@/platform/registry";
+import { canonicalPayloadHash, getAction } from "@/platform/actions";
 import { db } from "@/platform/db";
 
 type ColumnInfo = { name: string };
 
+type LegacyApproval = {
+  id: string;
+  action: string;
+  resource: string;
+  resourceId: string | null;
+  payload: string;
+  status: string;
+  requestedById: string;
+};
+
+const releaseIncompatible = process.argv.includes("--release-incompatible");
+
 async function columns(table: string): Promise<Set<string>> {
   const rows = await db.$queryRawUnsafe<ColumnInfo[]>(`PRAGMA table_info('${table}')`);
   return new Set(rows.map((row) => row.name));
+}
+
+async function tableExists(table: string) {
+  const rows = await db.$queryRawUnsafe<{ name: string }[]>(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = '${table}'`,
+  );
+  return rows.length > 0;
 }
 
 async function addColumn(table: string, name: string, definition: string) {
@@ -35,17 +61,152 @@ async function addColumn(table: string, name: string, definition: string) {
   return true;
 }
 
-async function tableExists(table: string) {
-  const rows = await db.$queryRawUnsafe<{ name: string }[]>(
-    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = '${table}'`,
+/** The transport identifier a legacy row never carried; not a business field. */
+const legacyIntentKey = (id: string) => `legacy-intent-${id}`;
+
+/**
+ * Why this pending proposal could not be decided after the upgrade, or null.
+ * The answer comes from the action's own schema, so it stays true as the
+ * actions change.
+ */
+function incompatibility(approval: LegacyApproval): string | null {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(approval.payload);
+  } catch {
+    return "its payload is not valid JSON";
+  }
+  if (!payload || typeof payload !== "object") return "its payload is not an object";
+
+  let action;
+  try {
+    action = getAction(approval.action);
+  } catch {
+    return `the action ${approval.action} no longer exists`;
+  }
+
+  const candidate = {
+    intentKey: legacyIntentKey(approval.id),
+    ...(payload as Record<string, unknown>),
+  };
+  const parsed = action.schema.safeParse(candidate);
+  if (parsed.success) return null;
+  return parsed.error.issues
+    .map((issue) => `${issue.path.join(".") || "payload"}: ${issue.message}`)
+    .join("; ");
+}
+
+/** Read-only. Runs before any DDL or DML, so a refusal changes nothing. */
+async function preflight(): Promise<{ blockers: string[]; approvals: LegacyApproval[] }> {
+  const blockers: string[] = [];
+  if (!(await tableExists("ApprovalRequest"))) return { blockers, approvals: [] };
+
+  const existing = await columns("ApprovalRequest");
+  const select = ["id", "action", "resource", "payload", "status", "requestedById"];
+  if (existing.has("resourceId")) select.push("resourceId");
+
+  const pending = await db.$queryRawUnsafe<LegacyApproval[]>(
+    `SELECT ${select.map((name) => `"${name}"`).join(", ")} FROM "ApprovalRequest" WHERE "status" = 'pending'`,
   );
-  return rows.length > 0;
+
+  const orphans = pending.filter((row) => !row.resourceId);
+  if (orphans.length > 0) {
+    blockers.push(
+      `${orphans.length} pending approval(s) have no resource id: ${orphans
+        .map((row) => row.id)
+        .join(", ")}. A proposal cannot hold a reservation on a record it does not name.`,
+    );
+  }
+
+  const undecidable = pending
+    .filter((row) => row.resourceId)
+    .map((row) => ({ row, why: incompatibility(row) }))
+    .filter((item): item is { row: LegacyApproval; why: string } => item.why !== null);
+  if (undecidable.length > 0) {
+    blockers.push(
+      `${undecidable.length} pending approval(s) could not be decided after the upgrade:\n` +
+        undecidable.map((item) => `    ${item.row.id} (${item.row.action}) ${item.why}`).join("\n"),
+    );
+  }
+
+  const reservations = new Map<string, string[]>();
+  for (const row of pending) {
+    if (!row.resourceId) continue;
+    const key = `${row.resource}:${row.resourceId}`;
+    reservations.set(key, [...(reservations.get(key) ?? []), row.id]);
+  }
+  const contested = [...reservations.entries()].filter(([, ids]) => ids.length > 1);
+  if (contested.length > 0) {
+    blockers.push(
+      `${contested.length} record(s) have more than one pending approval, and the new schema ` +
+        `allows one: ${contested.map(([key, ids]) => `${key} (${ids.join(", ")})`).join("; ")}.`,
+    );
+  }
+
+  return { blockers, approvals: pending };
+}
+
+/**
+ * Rejects the proposals the preflight named, on the old revision, writing only
+ * to the approval rows. The records they targeted are left exactly as they
+ * are, which is what rejecting a proposal means here, so the same decision can
+ * be proposed again after the upgrade.
+ */
+async function releaseBlockedProposals(pending: LegacyApproval[]) {
+  const doomed = pending.filter((row) => !row.resourceId || incompatibility(row) !== null);
+  const contested = new Map<string, LegacyApproval[]>();
+  for (const row of pending) {
+    if (!row.resourceId || incompatibility(row) !== null) continue;
+    const key = `${row.resource}:${row.resourceId}`;
+    contested.set(key, [...(contested.get(key) ?? []), row]);
+  }
+  // Where a record has several open proposals, the oldest one is kept and the
+  // rest are released: the schema allows exactly one.
+  for (const rows of contested.values()) {
+    if (rows.length > 1) doomed.push(...rows.slice(1));
+  }
+
+  for (const row of doomed) {
+    await db.$executeRawUnsafe(
+      `UPDATE "ApprovalRequest"
+       SET "status" = 'rejected', "decidedAt" = CURRENT_TIMESTAMP,
+           "decisionNote" = 'Released by the policy revision upgrade: this proposal predates the current action contract and was never decided. The record was not changed; propose it again if it still applies.'
+       WHERE "id" = ?`,
+      row.id,
+    );
+  }
+  console.log(`released ${doomed.length} pending proposal(s); no record was changed`);
+  return doomed.length;
 }
 
 async function main() {
   if (!(await tableExists("KycCase"))) {
     console.log("Nothing to upgrade: this database has no tables yet. Run npm run setup.");
     return;
+  }
+
+  const { blockers, approvals } = await preflight();
+
+  if (releaseIncompatible) {
+    if (approvals.length === 0) {
+      console.log("Nothing to release: no pending approvals.");
+    } else {
+      await releaseBlockedProposals(approvals);
+    }
+    console.log("Now run: npm run upgrade");
+    return;
+  }
+
+  if (blockers.length > 0) {
+    throw new Error(
+      `This database cannot be upgraded as it stands. Nothing has been changed.\n\n` +
+        blockers.map((line) => `  - ${line}`).join("\n") +
+        `\n\nDecide those proposals in the running application on the current revision, or ` +
+        `release them without touching the records they targeted:\n\n` +
+        `  npm run upgrade -- --release-incompatible\n\n` +
+        `Releasing rejects the proposals, which leaves every record as it is. The same ` +
+        `decisions can be proposed again, with the reasons their authors write then.`,
+    );
   }
 
   for (const [table, name, definition] of [
@@ -81,48 +242,33 @@ async function main() {
     `UPDATE "KycCase" SET "reference" = "reference" || '-' || rowid
      WHERE "reference" IN (SELECT "reference" FROM "KycCase" GROUP BY "reference" HAVING COUNT(*) > 1)`,
   );
-
-  const orphanPending = await db.$queryRawUnsafe<{ count: number }[]>(
-    `SELECT COUNT(*) AS count FROM "ApprovalRequest" WHERE "status" = 'pending' AND ("resourceId" IS NULL OR "resourceId" = '')`,
-  );
-  if (Number(orphanPending[0]?.count ?? 0) > 0) {
-    throw new Error(
-      `${orphanPending[0].count} pending approval(s) have no resource id. A proposal cannot hold a ` +
-        "reservation without one. Decide or cancel those proposals on the previous revision, then " +
-        "run this upgrade again. No data has been changed by this run beyond added columns.",
-    );
-  }
   await db.$executeRawUnsafe(
     `UPDATE "ApprovalRequest" SET "resourceId" = 'legacy-unknown' WHERE "resourceId" IS NULL OR "resourceId" = ''`,
   );
 
   // Hashes are derived per row rather than in SQL, so they match exactly what
   // the running application would compute for the same request.
-  const approvals = await db.$queryRawUnsafe<
-    {
-      id: string;
-      action: string;
-      resource: string;
-      resourceId: string;
-      payload: string;
-      status: string;
-      requestedById: string;
-    }[]
-  >(
+  const stale = await db.$queryRawUnsafe<LegacyApproval[]>(
     `SELECT "id", "action", "resource", "resourceId", "payload", "status", "requestedById"
      FROM "ApprovalRequest" WHERE "payloadHash" IS NULL OR "requestKey" IS NULL`,
   );
 
-  for (const approval of approvals) {
-    // Hashed the way the application hashes, so a replay of a historical
-    // request is recognised as one instead of opening a second proposal.
-    const payloadHash = canonicalPayloadHash(approval.action, JSON.parse(approval.payload));
-    // Request keys are scoped to an attempt at runtime and there is no record
-    // of the attempt a historical row belonged to; the id keeps them distinct.
+  for (const approval of stale) {
+    const parsed = JSON.parse(approval.payload) as Record<string, unknown>;
+    // The intent key is a transport identifier, so a pending row can be given
+    // one without inventing anything a person was supposed to write.
+    const payload =
+      approval.status === "pending" && typeof parsed.intentKey !== "string"
+        ? { intentKey: legacyIntentKey(approval.id), ...parsed }
+        : parsed;
+    const payloadHash = canonicalPayloadHash(approval.action, payload);
+    // Request keys address one attempt at runtime, and there is no record of
+    // the attempt a historical row belonged to; the id keeps them distinct.
     const requestKey = `legacy:${approval.id}`;
     const activeKey = approval.status === "pending" ? "active" : approval.id;
     await db.$executeRawUnsafe(
-      `UPDATE "ApprovalRequest" SET "payloadHash" = ?, "requestKey" = ?, "activeKey" = ? WHERE "id" = ?`,
+      `UPDATE "ApprovalRequest" SET "payload" = ?, "payloadHash" = ?, "requestKey" = ?, "activeKey" = ? WHERE "id" = ?`,
+      JSON.stringify(payload),
       payloadHash,
       requestKey,
       activeKey,
@@ -130,9 +276,7 @@ async function main() {
     );
   }
 
-  console.log(
-    `Backfilled ${approvals.length} approval request(s). Now run: npm run db:push`,
-  );
+  console.log(`Backfilled ${stale.length} approval request(s). Now run: npm run db:push`);
 }
 
 main()

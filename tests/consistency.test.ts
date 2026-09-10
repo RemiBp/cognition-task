@@ -12,11 +12,21 @@ import { actors, reset, seedCase } from "./helpers";
 beforeEach(reset);
 after(() => db.$disconnect());
 
-const approvalOf = (decision: "approved" | "rejected", version = 0) => ({
+/**
+ * `intentKey` is what the browser mints per submit and repeats on every retry
+ * of that submit, so a test that replays a request passes the same one, and a
+ * test that makes a deliberate second attempt passes a new one.
+ */
+const approvalOf = (
+  decision: "approved" | "rejected",
+  version = 0,
+  intentKey = `intent-${decision}-${version}`,
+) => ({
   caseId: "kyc-1",
   expectedVersion: version,
   decision,
   reasoning: `Proposing ${decision} on the evidence in the file`,
+  intentKey,
 });
 
 test("an identical retry reuses the open request instead of opening a second one", async () => {
@@ -45,46 +55,98 @@ test("a different payload conflicts rather than reusing the opposite decision", 
   assert.match(denial.reason ?? "", /already awaiting approval/i);
 });
 
-test("the same business payload can be proposed again once the first was rejected", async () => {
+test("a deliberate second attempt after a rejection is a new proposal", async () => {
   await seedCase();
-  const first = await execute("kyc_case.decide", approvalOf("approved"), actors.analyst);
+  const first = await execute(
+    "kyc_case.decide",
+    approvalOf("approved", 0, "intent-first-attempt"),
+    actors.analyst,
+  );
   assert.ok(first.status === "proposed");
   await decide(first.approvalId, "rejected", actors.approver, "Re-run the sanctions check first");
 
-  // Same actor, same payload, new intent: a payload-derived key must not turn
-  // a legitimate second attempt into a replay of the rejected one.
-  const second = await execute("kyc_case.decide", approvalOf("approved"), actors.analyst);
+  // Same actor, byte-identical business payload, but the person decided to
+  // propose again: a new submit, therefore a new intent key.
+  const second = await execute(
+    "kyc_case.decide",
+    approvalOf("approved", 0, "intent-second-attempt"),
+    actors.analyst,
+  );
   assert.ok(second.status === "proposed");
   assert.notEqual(second.approvalId, first.approvalId);
   assert.equal(second.reused, false);
   assert.equal(await db.approvalRequest.count({ where: { activeKey: "active" } }), 1);
 
-  // And a replay of that second submit still collapses onto it.
-  const replay = await execute("kyc_case.decide", approvalOf("approved"), actors.analyst);
-  assert.ok(replay.status === "proposed");
-  assert.equal(replay.approvalId, second.approvalId);
-  assert.equal(replay.reused, true);
-
   await decide(second.approvalId, "approved", actors.admin);
   assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status, "approved");
 });
 
-test("concurrent identical proposals produce exactly one reservation", async () => {
+test("a replay arriving after the proposal was rejected does not open another one", async () => {
   await seedCase();
+  const submit = approvalOf("approved", 0, "intent-lost-response");
+  const first = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(first.status === "proposed");
+  await decide(first.approvalId, "rejected", actors.approver, "Re-run the sanctions check first");
+
+  // The original request is delivered again long after the decision. It is one
+  // intent that has already been answered, not a new attempt.
+  const replay = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(replay.status === "proposed");
+  assert.equal(replay.approvalId, first.approvalId);
+  assert.equal(replay.reused, true);
+  assert.equal(await db.approvalRequest.count(), 1);
+  assert.equal(await db.approvalRequest.count({ where: { activeKey: "active" } }), 0);
+  assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status, "pending");
+});
+
+test("the same intent key with altered content is a conflict, not a silent edit", async () => {
+  await seedCase();
+  const submit = approvalOf("approved", 0, "intent-tampered");
+  const first = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(first.status === "proposed");
+
+  await assert.rejects(
+    execute("kyc_case.decide", { ...submit, decision: "rejected" }, actors.analyst),
+    ConflictError,
+  );
+  const requests = await db.approvalRequest.findMany();
+  assert.equal(requests.length, 1);
+  assert.match(requests[0].payload, /approved/);
+});
+
+test("an intent key is scoped to its actor", async () => {
+  await seedCase();
+  const submit = approvalOf("approved", 0, "intent-shared-string");
+  const mine = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(mine.status === "proposed");
+
+  // Someone else reusing the same string cannot address my proposal; they meet
+  // the reservation like any other second proposer.
+  await assert.rejects(execute("kyc_case.decide", submit, actors.approver), ConflictError);
+  assert.equal(await db.approvalRequest.count(), 1);
+});
+
+test("concurrent retries of one submit produce exactly one reservation", async () => {
+  await seedCase();
+  const submit = approvalOf("approved", 0, "intent-in-flight");
   const results = await Promise.allSettled([
-    execute("kyc_case.decide", approvalOf("approved"), actors.analyst),
-    execute("kyc_case.decide", approvalOf("approved"), actors.analyst),
+    execute("kyc_case.decide", submit, actors.analyst),
+    execute("kyc_case.decide", submit, actors.analyst),
   ]);
 
   assert.equal(results.filter((item) => item.status === "fulfilled").length, 2);
+  const ids = results.map((item) =>
+    item.status === "fulfilled" && item.value.status === "proposed" ? item.value.approvalId : null,
+  );
+  assert.equal(ids[0], ids[1]);
   assert.equal(await db.approvalRequest.count(), 1);
 });
 
 test("concurrent opposite proposals leave one winner and one conflict", async () => {
   await seedCase();
   const results = await Promise.allSettled([
-    execute("kyc_case.decide", approvalOf("approved"), actors.analyst),
-    execute("kyc_case.decide", approvalOf("rejected"), actors.analyst2),
+    execute("kyc_case.decide", approvalOf("approved", 0, "intent-a"), actors.analyst),
+    execute("kyc_case.decide", approvalOf("rejected", 0, "intent-b"), actors.analyst2),
   ]);
 
   assert.equal(results.filter((item) => item.status === "fulfilled").length, 1);
@@ -162,10 +224,16 @@ test("the domain change and its audit entry commit together", async () => {
 test("the case identity travels into the approval and the history, not just the id", async () => {
   await db.kycCase.create({ data: demoCase() });
   const reasoning =
-    "Checked the 2019 article against the declared date of birth: different person.";
+    "The 2019 article gives no date of birth and names a different nationality: different person.";
   const proposal = await execute(
     "kyc_case.decide",
-    { caseId: demoCase().id, expectedVersion: 0, decision: "approved", reasoning },
+    {
+      caseId: demoCase().id,
+      expectedVersion: 0,
+      decision: "approved",
+      reasoning,
+      intentKey: "intent-demo-approval",
+    },
     actors.approver,
   );
   assert.ok(proposal.status === "proposed");
@@ -198,6 +266,7 @@ test("a rejected proposal releases the reservation and keeps the customer state"
       expectedVersion: 0,
       decision: "approved",
       reasoning: "Screening returned no hit",
+      intentKey: "intent-demo-release",
     },
     actors.approver,
   );

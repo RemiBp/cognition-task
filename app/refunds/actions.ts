@@ -1,4 +1,4 @@
-import { registerAction } from "@/platform/actions";
+import { INTENT_KEY, registerAction } from "@/platform/actions";
 import type { DbClient } from "@/platform/db";
 import { ConflictError } from "@/platform/rbac";
 import { z } from "zod";
@@ -7,11 +7,15 @@ const money = (cents: number, currency: string) =>
   `${(cents / 100).toFixed(2)} ${currency}`;
 
 type RefundPayload = { refundId: string; expectedVersion: number };
+/** Approvals also carry the submit intent, so a retry cannot become a second proposal. */
+type RefundApprovalPayload = RefundPayload & { intentKey: string };
 
 const schema = z.object({
   refundId: z.string().min(1),
   expectedVersion: z.number().int().nonnegative(),
 });
+
+const approvalSchema = schema.extend({ intentKey: INTENT_KEY });
 
 async function refundSubject(refundId: string, client: DbClient) {
   const record = await client.refund.findUnique({
@@ -41,13 +45,14 @@ async function updateRefund(
   return client.refund.findUniqueOrThrow({ where: { id: refundId } });
 }
 
-export const approveRefund = registerAction<RefundPayload>({
+export const approveRefund = registerAction<RefundApprovalPayload>({
   key: "refund.approve",
   resource: "refund",
   roles: ["analyst", "approver", "admin"],
-  schema,
+  schema: approvalSchema,
   resourceId: ({ refundId }) => refundId,
   expectedVersion: ({ expectedVersion }) => expectedVersion,
+  intentKey: ({ intentKey }) => intentKey,
   requiresApproval: true,
   describe: () => "Approve refund",
   subject: ({ refundId }, client) => refundSubject(refundId, client),

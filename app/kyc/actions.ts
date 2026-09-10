@@ -1,4 +1,4 @@
-import { registerAction } from "@/platform/actions";
+import { INTENT_KEY, registerAction } from "@/platform/actions";
 import { db, type DbClient } from "@/platform/db";
 import { ConflictError } from "@/platform/rbac";
 import { z } from "zod";
@@ -10,6 +10,8 @@ type DecidePayload = {
   expectedVersion: number;
   decision: "approved" | "rejected";
   reasoning: string;
+  /** One submit intent; every retry of it carries the same value. */
+  intentKey: string;
 };
 
 async function caseSubject(caseId: string, client: DbClient) {
@@ -51,9 +53,11 @@ export const decideKycCase = registerAction<DecidePayload>({
     expectedVersion: z.number().int().nonnegative(),
     decision: z.enum(["approved", "rejected"]),
     reasoning,
+    intentKey: INTENT_KEY,
   }),
   resourceId: ({ caseId }) => caseId,
   expectedVersion: ({ expectedVersion }) => expectedVersion,
+  intentKey: ({ intentKey }) => intentKey,
   requiresApproval: true,
   describe: ({ decision }) => `Mark KYC case as ${decision}`,
   subject: ({ caseId }, client) => caseSubject(caseId, client),

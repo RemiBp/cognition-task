@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
-import { db } from "./db";
+import { db, type DbClient } from "./db";
 import { execute, getAction, writeAudit } from "./actions";
+import { loadPolicyState } from "./policy";
 import { ConflictError, PolicyError, requireCan, type Actor } from "./rbac";
 
 export async function pendingApprovals() {
@@ -36,6 +37,49 @@ export async function activeProposalsFor(resource: string, resourceIds: string[]
   return new Map(rows.map((row) => [row.resourceId, row]));
 }
 
+export type DecisionEligibility = {
+  /** Version of the record the proposal was composed against. */
+  targetVersion: number;
+  /** Version the record is at now, or null if it is gone. */
+  currentVersion: number | null;
+  mayApprove: boolean;
+  /** Why approval is unavailable, in the words the queue shows. */
+  reason?: string;
+};
+
+/**
+ * One answer for the queue and for `decide()`, so a control that is rendered
+ * disabled and a request that arrives anyway are refused for the same reason.
+ *
+ * Rejecting stays available whatever the versions are: a proposal written
+ * against an older state is exactly the one a reviewer should be able to
+ * clear, and rejecting changes no record.
+ */
+export async function decisionEligibility(
+  request: { resource: string; resourceId: string; targetVersion: number },
+  client: DbClient = db,
+): Promise<DecisionEligibility> {
+  const state = await loadPolicyState(request.resource, request.resourceId, client);
+  const currentVersion = state.record?.version ?? null;
+  if (currentVersion === null) {
+    return {
+      targetVersion: request.targetVersion,
+      currentVersion,
+      mayApprove: false,
+      reason: "The record this proposal targets no longer exists.",
+    };
+  }
+  if (currentVersion !== request.targetVersion) {
+    return {
+      targetVersion: request.targetVersion,
+      currentVersion,
+      mayApprove: false,
+      reason: `Written against version ${request.targetVersion}, the record is now at version ${currentVersion}. Reject it and let the proposer review the current state.`,
+    };
+  }
+  return { targetVersion: request.targetVersion, currentVersion, mayApprove: true };
+}
+
 /**
  * Maker-checker: the decider must hold `approval.decide` and must not be the
  * person who proposed the change, whatever their role. Self-approval is the
@@ -52,7 +96,24 @@ export async function decide(
   actor: Actor,
   note?: string,
 ) {
-  requireCan(actor, "approval.decide");
+  try {
+    requireCan(actor, "approval.decide");
+  } catch (error) {
+    // A refused decision is the attempt worth reading later, so it is recorded
+    // before the refusal is returned. Nothing about the proposal is looked up
+    // or written here: someone without the permission learns only that their
+    // own call was refused, and the entry holds only what they sent.
+    await writeAudit({
+      actor,
+      action: "approval.decide",
+      resource: "approval",
+      resourceId: approvalId,
+      outcome: "denied",
+      reason: `${decision} attempted without approval.decide`,
+      requestId: randomUUID(),
+    });
+    throw error;
+  }
 
   const request = await db.approvalRequest.findUnique({ where: { id: approvalId } });
   if (!request) throw new ConflictError("Approval request not found.");
@@ -76,6 +137,25 @@ export async function decide(
   }
 
   getAction(request.action); // fail loudly if an app was removed
+
+  if (decision === "approved") {
+    // The same answer the queue used to disable the button, so a forged
+    // approval of a stale proposal is refused with the reason the reviewer
+    // would have read, rather than a bare version conflict from the apply.
+    const eligibility = await decisionEligibility(request);
+    if (!eligibility.mayApprove) {
+      await writeAudit({
+        actor,
+        action: request.action,
+        resource: request.resource,
+        resourceId: request.resourceId,
+        outcome: "denied",
+        reason: "approval of a stale proposal refused",
+        requestId: randomUUID(),
+      });
+      throw new ConflictError(eligibility.reason ?? "This proposal can no longer be approved.");
+    }
+  }
 
   try {
     await db.$transaction(async (client) => {

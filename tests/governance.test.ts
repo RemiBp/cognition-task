@@ -15,7 +15,13 @@ test("a viewer is denied and the attempt is audited", async () => {
   await assert.rejects(
     execute(
       "kyc_case.decide",
-      { caseId: "kyc-1", expectedVersion: 0, decision: "approved", reasoning: "Looks fine" },
+      {
+        caseId: "kyc-1",
+        expectedVersion: 0,
+        decision: "approved",
+        reasoning: "Looks fine",
+        intentKey: "intent-viewer",
+      },
       actors.viewer,
     ),
     PolicyError,
@@ -34,13 +40,22 @@ test("a forged request that never rendered the page is refused by the same polic
   await assert.rejects(
     execute(
       "kyc_case.decide",
-      { caseId: "kyc-1", expectedVersion: 0, decision: "approved", reasoning: "Clearing it myself" },
+      {
+        caseId: "kyc-1",
+        expectedVersion: 0,
+        decision: "approved",
+        reasoning: "Clearing it myself",
+        intentKey: "intent-test",
+      },
       actors.analyst,
     ),
     (error: Error) => /senior review/i.test(error.message),
   );
   assert.equal(await db.approvalRequest.count(), 0);
-  assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status, "escalated");
+  assert.equal(
+    (await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status,
+    "escalated",
+  );
 });
 
 test("invalid client payloads are rejected at runtime", async () => {
@@ -48,7 +63,13 @@ test("invalid client payloads are rejected at runtime", async () => {
   await assert.rejects(
     execute(
       "kyc_case.decide",
-      { caseId: "kyc-1", expectedVersion: 0, decision: "invented-status", reasoning: "x" },
+      {
+        caseId: "kyc-1",
+        expectedVersion: 0,
+        decision: "invented-status",
+        reasoning: "x",
+        intentKey: "intent-test",
+      },
       actors.analyst,
     ),
     PolicyError,
@@ -68,7 +89,10 @@ test("a blank reason is refused before anything is written", async () => {
     ),
     PolicyError,
   );
-  assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status, "pending");
+  assert.equal(
+    (await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status,
+    "pending",
+  );
 });
 
 test("an id supplied beside the payload cannot redirect the write", async () => {
@@ -84,48 +108,87 @@ test("an id supplied beside the payload cannot redirect the write", async () => 
     ),
     PolicyError,
   );
-  assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-2" } })).status, "pending");
+  assert.equal(
+    (await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-2" } })).status,
+    "pending",
+  );
 });
 
 test("the proposer cannot approve their own request, admin included", async () => {
   await seedCase();
   const result = await execute(
     "kyc_case.decide",
-    { caseId: "kyc-1", expectedVersion: 0, decision: "approved", reasoning: "Screening is clean" },
+    {
+      caseId: "kyc-1",
+      expectedVersion: 0,
+      decision: "approved",
+      reasoning: "Screening is clean",
+      intentKey: "intent-test",
+    },
     actors.admin,
   );
   assert.equal(result.status, "proposed");
   assert.ok(result.status === "proposed");
 
-  await assert.rejects(decide(result.approvalId, "approved", actors.admin), PolicyError);
-  await assert.rejects(decide(result.approvalId, "rejected", actors.admin), PolicyError);
+  await assert.rejects(
+    decide(result.approvalId, "approved", actors.admin),
+    PolicyError,
+  );
+  await assert.rejects(
+    decide(result.approvalId, "rejected", actors.admin),
+    PolicyError,
+  );
   assert.equal(
-    await db.approvalRequest.count({ where: { id: result.approvalId, status: "pending" } }),
+    await db.approvalRequest.count({
+      where: { id: result.approvalId, status: "pending" },
+    }),
     1,
   );
-  assert.equal(await db.auditLog.count({ where: { reason: "self-approval refused" } }), 2);
+  assert.equal(
+    await db.auditLog.count({ where: { reason: "self-approval refused" } }),
+    2,
+  );
 });
 
 test("a second approver executes the change and records the trail", async () => {
   await seedCase();
   const result = await execute(
     "kyc_case.decide",
-    { caseId: "kyc-1", expectedVersion: 0, decision: "approved", reasoning: "Name collision ruled out" },
+    {
+      caseId: "kyc-1",
+      expectedVersion: 0,
+      decision: "approved",
+      reasoning: "Name collision ruled out",
+      intentKey: "intent-test",
+    },
     actors.analyst,
   );
   assert.ok(result.status === "proposed");
 
-  await decide(result.approvalId, "approved", actors.admin, "Reviewed test evidence");
+  await decide(
+    result.approvalId,
+    "approved",
+    actors.admin,
+    "Reviewed test evidence",
+  );
 
-  const settled = await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } });
+  const settled = await db.kycCase.findUniqueOrThrow({
+    where: { id: "kyc-1" },
+  });
   assert.equal(settled.status, "approved");
   assert.equal(settled.version, 1);
   assert.equal(
-    (await db.approvalRequest.findUniqueOrThrow({ where: { id: result.approvalId } })).status,
+    (
+      await db.approvalRequest.findUniqueOrThrow({
+        where: { id: result.approvalId },
+      })
+    ).status,
     "approved",
   );
   assert.deepEqual(
-    (await db.auditLog.findMany({ orderBy: { at: "asc" } })).map((entry) => entry.outcome),
+    (await db.auditLog.findMany({ orderBy: { at: "asc" } })).map(
+      (entry) => entry.outcome,
+    ),
     ["proposed", "approved", "executed"],
   );
 });
@@ -134,7 +197,13 @@ test("concurrent approval clicks execute the request only once", async () => {
   await seedCase();
   const result = await execute(
     "kyc_case.decide",
-    { caseId: "kyc-1", expectedVersion: 0, decision: "approved", reasoning: "Screening is clean" },
+    {
+      caseId: "kyc-1",
+      expectedVersion: 0,
+      decision: "approved",
+      reasoning: "Screening is clean",
+      intentKey: "intent-test",
+    },
     actors.analyst,
   );
   assert.ok(result.status === "proposed");
@@ -144,36 +213,67 @@ test("concurrent approval clicks execute the request only once", async () => {
     decide(result.approvalId, "approved", actors.approver),
   ]);
 
-  assert.equal(decisions.filter((item) => item.status === "fulfilled").length, 1);
+  assert.equal(
+    decisions.filter((item) => item.status === "fulfilled").length,
+    1,
+  );
   assert.equal(await db.auditLog.count({ where: { outcome: "approved" } }), 1);
   assert.equal(await db.auditLog.count({ where: { outcome: "executed" } }), 1);
-  assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).version, 1);
+  assert.equal(
+    (await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).version,
+    1,
+  );
 });
 
 test("a rejected proposal leaves the case in review and allows a new proposal", async () => {
   await seedCase();
   const first = await execute(
     "kyc_case.decide",
-    { caseId: "kyc-1", expectedVersion: 0, decision: "approved", reasoning: "Screening is clean" },
+    {
+      caseId: "kyc-1",
+      expectedVersion: 0,
+      decision: "approved",
+      reasoning: "Screening is clean",
+      intentKey: "intent-test",
+    },
     actors.analyst,
   );
   assert.ok(first.status === "proposed");
 
-  await decide(first.approvalId, "rejected", actors.approver, "Evidence is too thin");
+  await decide(
+    first.approvalId,
+    "rejected",
+    actors.approver,
+    "Evidence is too thin",
+  );
 
-  const unchanged = await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } });
+  const unchanged = await db.kycCase.findUniqueOrThrow({
+    where: { id: "kyc-1" },
+  });
   assert.equal(unchanged.status, "pending");
   assert.equal(unchanged.version, 0);
-  assert.equal(await db.approvalRequest.count({ where: { activeKey: "active" } }), 0);
+  assert.equal(
+    await db.approvalRequest.count({ where: { activeKey: "active" } }),
+    0,
+  );
 
   const second = await execute(
     "kyc_case.decide",
-    { caseId: "kyc-1", expectedVersion: 0, decision: "rejected", reasoning: "Adverse media confirmed" },
+    {
+      caseId: "kyc-1",
+      expectedVersion: 0,
+      decision: "rejected",
+      reasoning: "Adverse media confirmed",
+      intentKey: "intent-test",
+    },
     actors.approver,
   );
   assert.ok(second.status === "proposed");
   await decide(second.approvalId, "approved", actors.admin);
-  assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status, "rejected");
+  assert.equal(
+    (await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status,
+    "rejected",
+  );
 });
 
 test("there is no reopen path once a case is settled", async () => {
@@ -181,7 +281,13 @@ test("there is no reopen path once a case is settled", async () => {
   await assert.rejects(
     execute(
       "kyc_case.decide",
-      { caseId: "kyc-1", expectedVersion: 3, decision: "rejected", reasoning: "Changed my mind" },
+      {
+        caseId: "kyc-1",
+        expectedVersion: 3,
+        decision: "rejected",
+        reasoning: "Changed my mind",
+        intentKey: "intent-test",
+      },
       actors.admin,
     ),
     (error: Error) => /settled/i.test(error.message),
@@ -200,19 +306,29 @@ test("refunds and disputes inherit the same policy shape", async () => {
     },
   });
   await assert.rejects(
-    execute("refund.approve", { refundId: refund.id, expectedVersion: 0 }, actors.viewer),
+    execute(
+      "refund.approve",
+      { refundId: refund.id, expectedVersion: 0, intentKey: "intent-refund" },
+      actors.viewer,
+    ),
     PolicyError,
   );
 
   const proposal = await execute(
     "refund.approve",
-    { refundId: refund.id, expectedVersion: 0 },
+    { refundId: refund.id, expectedVersion: 0, intentKey: "intent-refund" },
     actors.analyst,
   );
   assert.ok(proposal.status === "proposed");
-  await assert.rejects(decide(proposal.approvalId, "approved", actors.analyst), PolicyError);
+  await assert.rejects(
+    decide(proposal.approvalId, "approved", actors.analyst),
+    PolicyError,
+  );
   await decide(proposal.approvalId, "approved", actors.approver);
-  assert.equal((await db.refund.findUniqueOrThrow({ where: { id: refund.id } })).status, "approved");
+  assert.equal(
+    (await db.refund.findUniqueOrThrow({ where: { id: refund.id } })).status,
+    "approved",
+  );
 
   const dispute = await db.dispute.create({
     data: {
@@ -226,7 +342,7 @@ test("refunds and disputes inherit the same policy shape", async () => {
   });
   const refundProposal = await execute(
     "dispute.refund",
-    { disputeId: dispute.id, expectedVersion: 0 },
+    { disputeId: dispute.id, expectedVersion: 0, intentKey: "intent-dispute" },
     actors.analyst,
   );
   assert.ok(refundProposal.status === "proposed");
@@ -234,15 +350,27 @@ test("refunds and disputes inherit the same policy shape", async () => {
   // Closing is a direct admin action, and it must not slip past the pending
   // refund proposal on the same dispute.
   await assert.rejects(
-    execute("dispute.close", { disputeId: dispute.id, expectedVersion: 0 }, actors.admin),
+    execute(
+      "dispute.close",
+      { disputeId: dispute.id, expectedVersion: 0 },
+      actors.admin,
+    ),
     (error: Error) => /refund proposal/i.test(error.message),
   );
-  assert.equal((await db.dispute.findUniqueOrThrow({ where: { id: dispute.id } })).status, "open");
+  assert.equal(
+    (await db.dispute.findUniqueOrThrow({ where: { id: dispute.id } })).status,
+    "open",
+  );
 });
 
 test("feature flags refuse every non-admin, including through a forged call", async () => {
   const flag = await db.featureFlag.create({
-    data: { id: "flag-1", key: "test_flag", description: "Test", enabled: false },
+    data: {
+      id: "flag-1",
+      key: "test_flag",
+      description: "Test",
+      enabled: false,
+    },
   });
   for (const actor of [actors.viewer, actors.analyst, actors.approver]) {
     await assert.rejects(
@@ -254,14 +382,30 @@ test("feature flags refuse every non-admin, including through a forged call", as
       PolicyError,
     );
   }
-  assert.equal((await db.featureFlag.findUniqueOrThrow({ where: { id: flag.id } })).enabled, false);
+  assert.equal(
+    (await db.featureFlag.findUniqueOrThrow({ where: { id: flag.id } }))
+      .enabled,
+    false,
+  );
 
-  await execute("feature_flag.toggle", { flagId: flag.id, expectedVersion: 0, enabled: true }, actors.admin);
-  assert.equal((await db.featureFlag.findUniqueOrThrow({ where: { id: flag.id } })).enabled, true);
+  await execute(
+    "feature_flag.toggle",
+    { flagId: flag.id, expectedVersion: 0, enabled: true },
+    actors.admin,
+  );
+  assert.equal(
+    (await db.featureFlag.findUniqueOrThrow({ where: { id: flag.id } }))
+      .enabled,
+    true,
+  );
 
   // Same logical state, stale version: still refused.
   await assert.rejects(
-    execute("feature_flag.toggle", { flagId: flag.id, expectedVersion: 0, enabled: true }, actors.admin),
+    execute(
+      "feature_flag.toggle",
+      { flagId: flag.id, expectedVersion: 0, enabled: true },
+      actors.admin,
+    ),
     ConflictError,
   );
 });

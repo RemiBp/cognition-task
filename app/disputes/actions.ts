@@ -1,14 +1,18 @@
-import { registerAction } from "@/platform/actions";
+import { INTENT_KEY, registerAction } from "@/platform/actions";
 import type { DbClient } from "@/platform/db";
 import { ConflictError } from "@/platform/rbac";
 import { z } from "zod";
 
 type DisputePayload = { disputeId: string; expectedVersion: number };
+/** Approvals also carry the submit intent, so a retry cannot become a second proposal. */
+type DisputeApprovalPayload = DisputePayload & { intentKey: string };
 
 const schema = z.object({
   disputeId: z.string().min(1),
   expectedVersion: z.number().int().nonnegative(),
 });
+
+const approvalSchema = schema.extend({ intentKey: INTENT_KEY });
 
 async function disputeSubject(disputeId: string, client: DbClient) {
   const record = await client.dispute.findUnique({
@@ -38,13 +42,14 @@ async function updateDispute(
   return client.dispute.findUniqueOrThrow({ where: { id: disputeId } });
 }
 
-export const refundDispute = registerAction<DisputePayload>({
+export const refundDispute = registerAction<DisputeApprovalPayload>({
   key: "dispute.refund",
   resource: "dispute",
   roles: ["analyst", "approver", "admin"],
-  schema,
+  schema: approvalSchema,
   resourceId: ({ disputeId }) => disputeId,
   expectedVersion: ({ expectedVersion }) => expectedVersion,
+  intentKey: ({ intentKey }) => intentKey,
   requiresApproval: true,
   describe: () => "Refund dispute",
   subject: ({ disputeId }, client) => disputeSubject(disputeId, client),
