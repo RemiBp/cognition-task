@@ -1,4 +1,6 @@
+import { getActor } from "@/platform/auth";
 import { db } from "@/platform/db";
+import { evaluatePolicy } from "@/platform/policy";
 import { PageHeader, StatusBadge } from "@/platform/ui/primitives";
 import { FlagControl } from "./FlagControl";
 
@@ -16,7 +18,16 @@ export default async function FlagsPage({
 }) {
   const { q } = await searchParams;
   const where = q ? { OR: [{ key: { contains: q } }, { description: { contains: q } }] } : {};
-  const rows = await db.featureFlag.findMany({ where, orderBy: { key: "asc" } });
+  const [actor, rows] = await Promise.all([
+    getActor(),
+    db.featureFlag.findMany({ where, orderBy: [{ key: "asc" }, { id: "asc" }] }),
+  ]);
+
+  // Same verdict the server applies on write; the page only renders it.
+  const toggle = evaluatePolicy("feature_flag.toggle", {
+    actor,
+    state: { record: null, activeProposal: null },
+  });
 
   return (
     <>
@@ -29,7 +40,9 @@ export default async function FlagsPage({
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">
               Active policy
             </div>
-            <div className="mt-1 text-sm font-bold text-brand-950">Admin only · audited</div>
+            <div className="mt-1 text-sm font-bold text-brand-950">
+              {toggle.available ? "Admin only · audited" : "Read-only for your role"}
+            </div>
           </div>
         }
       />
@@ -91,7 +104,14 @@ export default async function FlagsPage({
 
                   <div className="flex items-center justify-between gap-5 md:justify-end">
                     <StatusBadge value={flag.enabled ? "enabled" : "disabled"} />
-                    <FlagControl flagId={flag.id} flagName={name} enabled={flag.enabled} />
+                    <FlagControl
+                      flagId={flag.id}
+                      flagName={name}
+                      enabled={flag.enabled}
+                      version={flag.version}
+                      available={toggle.available}
+                      reason={toggle.reason}
+                    />
                   </div>
                 </article>
               );

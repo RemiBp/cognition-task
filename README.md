@@ -12,13 +12,15 @@ Platform layer (`platform/`)
 - **Server-side RBAC.** Four roles (`viewer`, `analyst`, `approver`, `admin`). Permissions are checked inside the action layer, never in the browser, so hiding a button is cosmetic and not a control.
 - **Runtime-safe actions.** Every client payload is validated with Zod and its audit resource id is derived server-side, so TypeScript types are not mistaken for a trust boundary.
 - **Central action audit.** Every mutation writes actor, role, action, resource, before/after snapshot, reason and request id. Denied attempts are logged too. The prototype has no update/delete path; production still needs database-enforced immutability or an external audit sink.
-- **Maker-checker approvals.** A reusable primitive. An action declared `requiresApproval` never mutates directly: it creates an approval request, and a second human with `approver`/`admin` executes it. Self-approval is rejected server-side.
+- **Maker-checker approvals.** A reusable primitive. An action declared `requiresApproval` never mutates directly: it creates an approval request, and a second human with `approver`/`admin` executes it. Self-approval is rejected server-side, including for an admin. A pending proposal holds a database-side reservation, so one record carries one open proposal at a time; rejecting it leaves the record as it was and frees the record for a new one.
+- **Shared availability policy.** `platform/policy.ts` answers, for one action on one record, whether the current actor may run it and why not. Pages render controls from that answer, disabled and with the reason visible, and `execute()` evaluates the same policy again inside the transaction. An action with no declared policy is unavailable rather than allowed.
+- **Concurrency.** Every mutating payload carries the record version it was rendered from, applied as a compare-and-set, so a stale tab is refused instead of overwriting a newer decision. The approval claim, the domain write and the success audit entry share one transaction; denials and failures are logged outside it so they survive the rollback. A repeated submit of the same intent reuses its open proposal, while a different payload is refused as a conflict.
 - **Typed data layer.** The Prisma schema is the single source of truth for tables, and generated types flow into pages and actions.
-- **UI kit.** Server-paginated data table with search, status badges, cards, and an action button that round-trips through the policy layer.
+- **UI kit.** Server-paginated data table with search, status badges, cards, and `ActionControls`, which renders whatever the policy allows and keeps the rest visible, disabled and explained.
 
 Apps (`app/`)
 
-- `/kyc`: KYC review queue. Decisions require a second approver; escalation is immediate but audited.
+- `/kyc`: KYC review queue, with a case page at `/kyc/[caseId]` showing the reference, the synthetic evidence summary, the recorded reasoning, what happens next and the case history. Decisions require a second approver; escalation is immediate but audited.
 - `/refunds`: refunds dashboard with pending exposure. Approvals go through maker-checker, rejections are direct.
 - `/flags`: feature flag admin. Admin-only, immediate, and routed through the shared audit path.
 - `/disputes`: card disputes queue for support. A refund is proposed and executed by a second approver; closing without a refund is admin-only.
@@ -35,8 +37,17 @@ npm run setup   # prisma db push + seed (SQLite, no external services)
 npm run dev
 ```
 
-`npm test` exercises the highest-risk governance paths: denied actions, runtime payload validation,
-duplicate proposals, self-approval, second-person execution and concurrent approval decisions.
+`npm test` exercises the highest-risk paths on a throwaway database: denied and forged actions,
+runtime payload validation, stale versions, duplicate and conflicting proposals, self-approval,
+second-person execution, concurrent proposals and approvals, rollback on failure, and the upgrade
+of a populated database created before this revision.
+
+If you already have a `dev.db` from an earlier revision, `npm run setup` stops and tells you to
+upgrade in place rather than reset:
+
+```bash
+npm run upgrade && npm run db:push   # adds and backfills the new columns, keeps the rows
+```
 
 Open http://localhost:3000. The database is a local SQLite file. A production move to Postgres also requires migrations, deployment, backups, database permissions and integration testing; changing the Prisma datasource is only the first step.
 
@@ -53,11 +64,17 @@ Switch identity with the menu in the header (this stands in for SSO):
 
 ## Suggested demo path
 
-1. As **analyst**, try to toggle a feature flag → denied server-side, and the denial appears in `/audit`.
-2. In KYC, approve a pending case → nothing changes yet; an approval request is created.
-3. Switch to **approver** → `/approvals` shows it. Add a decision note and approve it.
-4. Open `/audit` → the trail shows the denied flag attempt, KYC proposal, approval rationale and before/after change.
-5. The self-approval invariant is covered in `tests/governance.test.ts`; the default demo roles do not provide a clean UI path to reproduce it.
+1. As **analyst**, try to toggle a feature flag → the control is visibly read-only, and a forged call is denied server-side and appears in `/audit`.
+2. Open the demo case `KYC-DEMO-001` (Mateo Moreau). Its file carries an adverse media hit that may or may not be the same person, which is the point: as **analyst** you can escalate it with a reason, but not clear it.
+3. As **approver**, record the reasoning that resolves the collision and propose approval. Nothing changes on the case yet, and the proposal is now visible to everyone, including after a reload.
+4. As **admin**, approve it from `/approvals`. The proposer could not have done this themselves.
+5. Open `/audit` and the case page → the same customer, reference and reasoning, not just ids.
+
+The same walkthrough runs headless against an isolated database, which never touches `dev.db`:
+
+```bash
+npm run demo:reset && npm run demo:journey
+```
 
 The same trail is readable from a terminal, which is useful when demoing side by side with the UI:
 

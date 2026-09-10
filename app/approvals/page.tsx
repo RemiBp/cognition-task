@@ -39,12 +39,25 @@ export default async function ApprovalsPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <div className="text-[15px] font-bold text-ink">{request.summary}</div>
+                {request.subject && (
+                  <div className="mt-0.5 text-[13px] text-ink/80">{request.subject}</div>
+                )}
+                {request.reason && (
+                  <div className="mt-1 text-xs text-muted">Reason: {request.reason}</div>
+                )}
                 <div className="mt-1 text-xs text-muted">
                   Requested by {request.requestedBy.name} ({request.requestedBy.role}) ·{" "}
                   {request.createdAt.toISOString().slice(0, 16).replace("T", " ")}
                 </div>
               </div>
-              {mayDecide && <DecisionButtons approvalId={request.id} />}
+              {mayDecide &&
+                (request.requestedById === actor.id ? (
+                  <span className="text-xs text-muted">
+                    You proposed this change, so it awaits a different approver.
+                  </span>
+                ) : (
+                  <DecisionButtons approvalId={request.id} />
+                ))}
             </div>
           </Card>
         ))}
@@ -63,7 +76,12 @@ export default async function ApprovalsPage() {
                     key={request.id}
                     className="border-b border-line/60 transition last:border-0 hover:bg-canvas"
                   >
-                    <td className="px-4 py-3">{request.summary}</td>
+                    <td className="px-4 py-3">
+                      {request.summary}
+                      {request.subject && (
+                        <span className="block text-xs text-muted">{request.subject}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <StatusBadge value={request.status} />
                     </td>

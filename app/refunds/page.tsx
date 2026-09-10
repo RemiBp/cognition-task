@@ -1,6 +1,10 @@
+import { activeProposalsFor } from "@/platform/approvals";
+import { getActor } from "@/platform/auth";
 import { db } from "@/platform/db";
 import { statusWhere } from "@/platform/filters";
-import { ActionButton } from "@/platform/ui/ActionButton";
+import { nextStep } from "@/platform/policy";
+import { ActionControls, type ActionOption } from "@/platform/ui/ActionControls";
+import { controlsFor } from "@/platform/ui/controls";
 import { DataTable, type Column } from "@/platform/ui/DataTable";
 import { StatusFilter } from "@/platform/ui/StatusFilter";
 import { PageHeader, StatusBadge } from "@/platform/ui/primitives";
@@ -18,6 +22,8 @@ type RefundRow = {
   reason: string;
   status: string;
   processorRef: string | null;
+  controls: ActionOption[];
+  waitingOn: string;
 };
 
 export default async function RefundsPage({
@@ -28,6 +34,7 @@ export default async function RefundsPage({
   const { q, page: pageParam, status: statusParam } = await searchParams;
   const page = Math.max(1, Number(pageParam ?? 1));
   const status = statusParam ?? "open";
+  const actor = await getActor();
   const where = {
     ...statusWhere(status, OPEN_STATUSES),
     ...(q
@@ -35,16 +42,42 @@ export default async function RefundsPage({
       : {}),
   };
 
-  const [rows, total, exposure] = await Promise.all([
+  const [refunds, total, exposure] = await Promise.all([
     db.refund.findMany({
       where,
-      orderBy: [{ amountCents: "desc" }],
+      orderBy: [{ amountCents: "desc" }, { requestedAt: "asc" }, { id: "asc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
     db.refund.count({ where }),
     db.refund.aggregate({ where: { status: "pending" }, _sum: { amountCents: true } }),
   ]);
+
+  const proposals = await activeProposalsFor(
+    "refund",
+    refunds.map((row) => row.id),
+  );
+
+  const rows: RefundRow[] = refunds.map((row) => {
+    const state = {
+      record: { id: row.id, status: row.status, version: row.version },
+      activeProposal: proposals.get(row.id) ?? null,
+    };
+    const payload = { refundId: row.id, expectedVersion: row.version };
+
+    return {
+      ...row,
+      waitingOn: nextStep(state),
+      controls: controlsFor(
+        [
+          { policyKey: "refund.approve", actionKey: "refund.approve", payload },
+          { policyKey: "refund.reject", actionKey: "refund.reject", payload },
+        ],
+        actor,
+        state,
+      ),
+    };
+  });
 
   const columns: Column<RefundRow>[] = [
     { header: "Order", cell: (row) => <span className="font-mono text-xs">{row.orderId}</span> },
@@ -64,28 +97,14 @@ export default async function RefundsPage({
       cell: (row) => <span className="font-mono text-[11px] text-muted">{row.processorRef ?? "—"}</span>,
     },
     {
+      header: "Waiting on",
+      className: "hidden xl:table-cell",
+      cell: (row) => <span className="text-xs text-muted">{row.waitingOn}</span>,
+    },
+    {
       header: "Decision",
       className: "whitespace-nowrap",
-      cell: (row) =>
-        row.status === "pending" ? (
-          <span className="flex gap-1.5">
-            <ActionButton
-              actionKey="refund.approve"
-              payload={{ refundId: row.id }}
-              resourceId={row.id}
-              label="Approve"
-            />
-            <ActionButton
-              actionKey="refund.reject"
-              payload={{ refundId: row.id }}
-              resourceId={row.id}
-              label="Reject"
-              variant="danger"
-            />
-          </span>
-        ) : (
-          <span className="text-xs text-muted">decided</span>
-        ),
+      cell: (row) => <ActionControls actions={row.controls} />,
     },
   ];
 

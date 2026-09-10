@@ -23,6 +23,18 @@ export class PolicyError extends Error {
 }
 
 /**
+ * The request was legitimate but the world moved: a stale version, a
+ * conflicting proposal, an already decided request. Distinct from PolicyError
+ * because the caller can usually reload and retry.
+ */
+export class ConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConflictError";
+  }
+}
+
+/**
  * Platform-level permissions. Per-app action permissions are declared next to
  * the action itself (see platform/actions.ts) so that adding an app never
  * means editing a central god-object.

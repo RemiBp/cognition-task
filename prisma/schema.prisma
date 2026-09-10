@@ -52,11 +52,21 @@ model ApprovalRequest {
   createdAt     DateTime @default(now())
   action        String
   resource      String
-  resourceId    String?
+  /// Always the action's canonical id: the reservation index below must never
+  /// depend on NULL comparison semantics to hold.
+  resourceId    String
   payload       String // JSON args for the registered action handler
+  payloadHash   String // canonical hash of the payload, for retry equivalence
+  requestKey    String @unique // actor + action + resource + payload hash
+  targetVersion Int // resource version the proposal was made against
   summary       String
+  subject       String? // customer-facing identity, e.g. KYC-DEMO-001 · Mateo Moreau
   reason        String?
   status        String   @default("pending") // pending | approved | rejected
+  /// "active" while pending, replaced by the request id once decided. The
+  /// unique index below is therefore a database-side reservation: one active
+  /// proposal per resource, enforced by the engine rather than by a read.
+  activeKey     String   @default("active")
   requestedById String
   decidedById   String?
   decidedAt     DateTime?
@@ -65,6 +75,7 @@ model ApprovalRequest {
   requestedBy User  @relation("requestedBy", fields: [requestedById], references: [id])
   decidedBy   User? @relation("decidedBy", fields: [decidedById], references: [id])
 
+  @@unique([resource, resourceId, activeKey])
   @@index([status])
 }
 
@@ -74,14 +85,23 @@ model ApprovalRequest {
 // ---------------------------------------------------------------------------
 
 model KycCase {
-  id           String   @id @default(cuid())
-  customerName String
-  country      String
-  riskScore    Int
-  documentType String
-  status       String   @default("pending") // pending | approved | rejected | escalated
-  submittedAt  DateTime @default(now())
-  notes        String?
+  id              String   @id @default(cuid())
+  reference       String   @unique // human reference used in approvals and history
+  customerName    String
+  country         String
+  riskScore       Int
+  documentType    String
+  status          String   @default("pending") // pending | approved | rejected | escalated
+  submittedAt     DateTime @default(now())
+  notes           String?
+  /// Synthetic summary of what a reviewer would have looked at. The prototype
+  /// stores no identity documents and performs no verification.
+  evidenceSummary String?
+  /// Reasoning recorded by the analyst or approver on the latest decision.
+  reasoning       String?
+  isDemo          Boolean  @default(false)
+  version         Int      @default(0)
+  updatedAt       DateTime @updatedAt
 }
 
 model Refund {
@@ -94,6 +114,8 @@ model Refund {
   status        String   @default("pending") // pending | approved | rejected
   requestedAt   DateTime @default(now())
   processorRef  String?
+  reasoning     String?
+  version       Int      @default(0)
 }
 
 model FeatureFlag {
@@ -104,6 +126,7 @@ model FeatureFlag {
   rolloutPercent Int      @default(0)
   environment    String   @default("production")
   updatedAt      DateTime @updatedAt
+  version        Int      @default(0)
 }
 
 model Dispute {
@@ -116,4 +139,6 @@ model Dispute {
   status       String   @default("open") // open | refunded | closed
   processorRef String?
   openedAt     DateTime @default(now())
+  reasoning    String?
+  version      Int      @default(0)
 }

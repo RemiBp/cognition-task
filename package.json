@@ -10,13 +10,16 @@
     "start": "next start",
     "lint": "eslint",
     "pretest": "tsx scripts/ensure-test-db.ts",
-    "test": "DATABASE_URL=\"file:./test.db\" prisma db push --skip-generate && DATABASE_URL=\"file:./test.db\" node --import tsx --test --test-concurrency=1 tests/*.test.ts",
+    "test": "DATABASE_URL=\"file:./test.db\" prisma db push --skip-generate --force-reset && DATABASE_URL=\"file:./test.db\" node --import tsx --test --test-concurrency=1 tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "presetup": "tsx scripts/ensure-env.ts",
+    "presetup": "tsx scripts/ensure-env.ts && tsx scripts/check-db-revision.ts",
     "setup": "prisma db push && tsx prisma/seed.ts",
     "new-app": "tsx scripts/new-app.ts",
+    "upgrade": "tsx scripts/upgrade-policy-v2.ts",
+    "demo:reset": "DATABASE_URL=\"file:./demo.db\" prisma db push --skip-generate --force-reset",
+    "demo:journey": "DATABASE_URL=\"file:./demo.db\" tsx scripts/demo-journey.ts",
     "audit": "tsx scripts/audit-tail.ts"
   },
   "dependencies": {

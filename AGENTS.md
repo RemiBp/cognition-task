@@ -4,12 +4,14 @@ Read this before adding a tool. It exists so that a new app, written by a person
 
 ## Rules
 
-1. **Never mutate data outside an action.** Business writes go through `registerAction()` in `platform/actions.ts` and are executed with `execute()`. That path is what enforces RBAC, writes the audit entry and snapshots before/after. A page or component that calls `db.*.update()` directly is a bug.
-2. **Authorization is server-side.** Declare `roles` on the action. Hiding a button is presentation, not a control.
+1. **Never mutate data outside an action.** Business writes go through `registerAction()` in `platform/actions.ts` and are executed with `execute()`. That path is what enforces RBAC, re-checks the policy, applies the version compare-and-set, writes the audit entry and snapshots before/after, all in one transaction. A page or component that calls `db.*.update()` directly is a bug, and so is using the global `db` inside an action's `apply`: use `ctx.tx`.
+2. **Authorization is server-side.** Declare `roles` on the action, and put every role/state rule in `platform/policy.ts`. Pages read availability from that policy and render disabled controls with the reason; `execute()` evaluates the same policy again. Hiding or disabling a button is presentation, not a control, and a server function can be called by a POST that never rendered the page.
+   Also note: this file is a convention followed by the code in `platform/`, not a security boundary by itself.
 3. **Validate the boundary.** Every action declares a Zod `schema` and derives its canonical `resourceId` from the validated payload. Never trust an id supplied separately by the browser.
 4. **Anything that moves money or clears a customer needs `requiresApproval: true`.** It then lands in the shared `/approvals` inbox and is executed by a second human.
 5. **Query on the server.** Pages are server components; search, filter and pagination happen in Prisma, never by fetching everything and filtering in the browser.
-6. **Reuse the kit.** `DataTable`, `PageHeader`, `StatusBadge`, `Card`, `ActionButton` from `platform/ui/`. New shared UI belongs there, not in an app folder.
+6. **Every mutating payload carries `expectedVersion`.** The action applies it as a compare-and-set, so a stale tab is refused instead of overwriting a newer decision. Actions that need a second person also hold a database-side reservation: one active proposal per record.
+7. **Reuse the kit.** `DataTable`, `PageHeader`, `StatusBadge`, `Card` and `ActionControls` from `platform/ui/`, with `controlsFor()` turning policy verdicts into controls. New shared UI belongs there, not in an app folder.
 
 ## Adding a tool
 
