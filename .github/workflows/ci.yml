@@ -27,3 +27,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      # The two registry-bootstrap failures it covers are invisible to the
+      # steps above: they typecheck, they build, and they only appear on a
+      # cold render.
+      - run: npm run smoke:generator

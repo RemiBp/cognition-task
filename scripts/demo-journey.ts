@@ -53,7 +53,7 @@ async function main() {
       expectedVersion: 1,
       decision: "approved",
       reasoning:
-        "The 2019 article gives no date of birth, so it cannot be matched on that. It names a different nationality from the one declared, sanctions and PEP screening are clean, and no other article repeats the allegation. On that balance I read it as a different person and propose approval.",
+        "The 2019 article gives no date of birth, so it cannot be matched on that, and the nationality it names differs from the declared one. Sanctions and PEP screening are clean. On that balance I read it as a different person and propose approval.",
       intentKey: "demo-journey-priya-proposal",
     },
     PEOPLE.priya,

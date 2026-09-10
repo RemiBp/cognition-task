@@ -1,4 +1,9 @@
 import Link from "next/link";
+// The queue reads records belonging to every app, so its render graph has to
+// carry every resource loader. Without this the page renders cold with only
+// the loaders its own imports happen to pull in, and a record from another app
+// reads as deleted.
+import "@/platform/registry";
 import { getActor } from "@/platform/auth";
 import { decidedApprovals, decisionEligibility, pendingApprovals } from "@/platform/approvals";
 import { can } from "@/platform/rbac";

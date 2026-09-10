@@ -5,9 +5,17 @@
  * route renders, because a page renders in a different module graph from the
  * server action file and only sees the policies that its own imports have
  * registered. So this copies the working tree into a disposable directory,
- * generates an app there, seeds one row and does a cold GET against a fresh
- * server, asserting the row's control is offered rather than refused with
- * "No policy is declared for this action".
+ * generates an app there, seeds one row, proposes on it through `execute()`
+ * and does two cold GETs against a fresh server:
+ *
+ *   - `/approvals` first, before the generated route has ever been rendered,
+ *     asserting the queue reads the generated record rather than reporting it
+ *     as gone and disabling Approve;
+ *   - the generated route, asserting the row's control is offered rather than
+ *     refused with "No policy is declared for this action".
+ *
+ * Both are registry-bootstrap failures that typecheck, unit tests and the
+ * production build all pass through.
  *
  *   npm run smoke:generator
  *
@@ -23,6 +31,8 @@ const root = join(__dirname, "..");
 const work = mkdtempSync(join(root, "..", "generator-smoke-"));
 const SLUG = "smoke-checks";
 const PORT = 3219;
+// The seeded admin, so the queue renders for someone allowed to decide.
+const ALEX = "itp_session_user=user-alex";
 
 const run = (
   command: string,
@@ -62,11 +72,19 @@ function copyTree() {
   }
 }
 
-async function get(url: string, attempts: number): Promise<string> {
+/** The markup of the Approve button, so `disabled` elsewhere is not read as its own. */
+function approveButton(html: string): string {
+  const start = html.indexOf(">Approve<");
+  if (start === -1) return "";
+  const open = html.lastIndexOf("<button", start);
+  return html.slice(open, start + "Approve<".length);
+}
+
+async function get(url: string, attempts: number, cookie?: string): Promise<string> {
   let last = "never answered";
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, cookie ? { headers: { cookie } } : undefined);
       const body = await response.text();
       if (response.ok) return body;
       last = `answered ${response.status}`;
@@ -98,8 +116,43 @@ db.smokeCheck
   .then(() => db.$disconnect());
 `,
   );
+  // Proposing from a standalone process, the way a real submit would, so the
+  // approval in the queue is a genuine one rather than a hand-written row.
+  writeFileSync(
+    join(work, "scripts", "smoke-propose.ts"),
+    `import "@/platform/registry";
+import { execute } from "@/platform/actions";
+import { db } from "@/platform/db";
+
+async function main() {
+  const row = await db.smokeCheck.findUniqueOrThrow({ where: { reference: "SMOKE-001" } });
+  const sam = await db.user.findUniqueOrThrow({ where: { id: "user-sam" } });
+  const result = await execute(
+    "smoke_check.resolve",
+    {
+      id: row.id,
+      expectedVersion: row.version,
+      status: "resolved",
+      intentKey: "smoke-generated-proposal",
+    },
+    { id: sam.id, email: sam.email, name: sam.name, role: "analyst" },
+  );
+  if (result.status !== "proposed") throw new Error(\`expected a proposal, got \${result.status}\`);
+  console.log(\`proposed \${result.approvalId} against version \${row.version}\`);
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(() => db.$disconnect());
+`,
+  );
+
   run("npx", ["tsx", "prisma/seed.ts"], work, env);
   run("npx", ["tsx", "scripts/smoke-seed.ts"], work, env);
+  run("npx", ["tsx", "scripts/smoke-propose.ts"], work, env);
 
   run("npm", ["run", "typecheck"], work, env);
   run("npm", ["run", "lint"], work, env);
@@ -114,7 +167,32 @@ db.smokeCheck
   });
 
   try {
-    const html = await get(`http://127.0.0.1:${PORT}/${SLUG}`, 90);
+    // The queue first, on a server that has never rendered the generated
+    // route: this is what fails when only that route's own imports register
+    // the generated resource loader.
+    const queue = await get(`http://127.0.0.1:${PORT}/approvals`, 90, ALEX);
+    const text = queue
+      .replace(/<!--.*?-->/g, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ");
+    const queueFailures: string[] = [];
+    if (!text.includes("SMOKE-001")) queueFailures.push("the generated proposal is not in the queue");
+    if (/record now at gone|no longer exists/i.test(text)) {
+      queueFailures.push("the queue reads the generated record as gone");
+    }
+    if (!/record now at 0\b/.test(text)) {
+      queueFailures.push("the queue does not report the record's actual current version");
+    }
+    const approve = approveButton(queue);
+    if (approve === "") {
+      queueFailures.push("the queue offers no Approve control at all");
+    } else if (/\sdisabled(=|[\s>])/.test(approve) || /aria-disabled="true"/.test(approve)) {
+      queueFailures.push("Approve is disabled although the record is unchanged");
+    }
+    if (queueFailures.length > 0) throw new Error(queueFailures.join("; "));
+    console.log("Cold GET /approvals read the generated record and offered Approve.");
+
+    const html = await get(`http://127.0.0.1:${PORT}/${SLUG}`, 30);
     const failures: string[] = [];
     if (!html.includes("SMOKE-001")) failures.push("the seeded row is not on the page");
     if (html.includes("No policy is declared")) {

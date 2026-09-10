@@ -99,6 +99,42 @@ test("a replay arriving after the proposal was rejected does not open another on
   assert.equal((await db.kycCase.findUniqueOrThrow({ where: { id: "kyc-1" } })).status, "pending");
 });
 
+test("a replay reports what the request has become, not what it was", async () => {
+  await seedCase();
+  const submit = approvalOf("approved", 0, "intent-status-copy");
+  const first = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(first.status === "proposed");
+  assert.equal(first.requestStatus, "pending");
+
+  const whilePending = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(whilePending.status === "proposed");
+  assert.equal(whilePending.requestStatus, "pending");
+
+  await decide(first.approvalId, "rejected", actors.approver, "Re-run the sanctions check first");
+
+  // The message the user reads is built from this: a rejected request must not
+  // be described as awaiting approval.
+  const afterRejection = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(afterRejection.status === "proposed");
+  assert.equal(afterRejection.approvalId, first.approvalId);
+  assert.equal(afterRejection.reused, true);
+  assert.equal(afterRejection.requestStatus, "rejected");
+});
+
+test("a replay of an approved request reports it as approved", async () => {
+  await seedCase();
+  const submit = approvalOf("approved", 0, "intent-approved-copy");
+  const first = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(first.status === "proposed");
+  await decide(first.approvalId, "approved", actors.admin);
+
+  const replay = await execute("kyc_case.decide", submit, actors.analyst);
+  assert.ok(replay.status === "proposed");
+  assert.equal(replay.approvalId, first.approvalId);
+  assert.equal(replay.requestStatus, "approved");
+  assert.equal(await db.approvalRequest.count(), 1);
+});
+
 test("the same intent key with altered content is a conflict, not a silent edit", async () => {
   await seedCase();
   const submit = approvalOf("approved", 0, "intent-tampered");

@@ -107,7 +107,13 @@ export function getAction(key: string) {
 
 export type ExecuteResult =
   | { status: "executed" }
-  | { status: "proposed"; approvalId: string; reused: boolean };
+  | {
+      status: "proposed";
+      approvalId: string;
+      reused: boolean;
+      /** What the reused request is now: a replay can land on a decided one. */
+      requestStatus: "pending" | "approved" | "rejected";
+    };
 
 type ExecuteOptions = {
   reason?: string;
@@ -157,6 +163,10 @@ function requestKeyFor(
   return createHash("sha256")
     .update(`${actor.id}:${actionKey}:${resourceId}:${intentKey}`)
     .digest("hex");
+}
+
+function requestStatusOf(status: string): "pending" | "approved" | "rejected" {
+  return status === "approved" || status === "rejected" ? status : "pending";
 }
 
 function isUniqueViolation(error: unknown, field: string): boolean {
@@ -281,7 +291,12 @@ export async function execute(
               "This request was already submitted with different content. Reload and submit again.",
             );
           }
-          return { status: "proposed", approvalId: existing.id, reused: true } as const;
+          return {
+            status: "proposed",
+            approvalId: existing.id,
+            reused: true,
+            requestStatus: requestStatusOf(existing.status),
+          } as const;
         }
 
         const active = await client.approvalRequest.findFirst({
@@ -328,14 +343,24 @@ export async function execute(
           client,
         );
 
-        return { status: "proposed", approvalId: approval.id, reused: false } as const;
+        return {
+          status: "proposed",
+          approvalId: approval.id,
+          reused: false,
+          requestStatus: "pending",
+        } as const;
       });
     } catch (error) {
       if (isUniqueViolation(error, "requestKey")) {
         // An identical retry raced us; reuse the request the other one created.
         const existing = await db.approvalRequest.findUnique({ where: { requestKey } });
         if (existing) {
-          return { status: "proposed", approvalId: existing.id, reused: true };
+          return {
+            status: "proposed",
+            approvalId: existing.id,
+            reused: true,
+            requestStatus: requestStatusOf(existing.status),
+          };
         }
       }
       if (isUniqueViolation(error, "activeKey")) {

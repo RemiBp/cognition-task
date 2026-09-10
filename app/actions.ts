@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import "@/platform/registry";
-import { execute } from "@/platform/actions";
+import { execute, type ExecuteResult } from "@/platform/actions";
 import { decide } from "@/platform/approvals";
 import { getActor, setActor } from "@/platform/auth";
 import { ConflictError, PolicyError } from "@/platform/rbac";
@@ -11,6 +11,22 @@ import { z } from "zod";
 export async function switchUser(userId: string) {
   await setActor(userId);
   revalidatePath("/", "layout");
+}
+
+/**
+ * A replay returns the request the first delivery created, whatever has since
+ * happened to it, so the message has to read its actual status: describing a
+ * rejected request as awaiting approval would be a lie the user acts on.
+ */
+function replayText(result: Extract<ExecuteResult, { status: "proposed" }>): string {
+  if (!result.reused) return "Proposed. It is awaiting independent approval by someone else.";
+  if (result.requestStatus === "approved") {
+    return "This request was already submitted and has since been approved. Nothing was submitted twice.";
+  }
+  if (result.requestStatus === "rejected") {
+    return "This request was already submitted and has since been rejected. Nothing was submitted twice; review the case before proposing again.";
+  }
+  return "This proposal was already open; it is awaiting independent approval.";
 }
 
 /**
@@ -29,12 +45,7 @@ export async function runAction(
     if (result.status !== "proposed") {
       return { ok: true, text: "Applied and written to the audit log." };
     }
-    return {
-      ok: true,
-      text: result.reused
-        ? "This proposal was already open; it is awaiting independent approval."
-        : "Proposed. It is awaiting independent approval by someone else.",
-    };
+    return { ok: true, text: replayText(result) };
   } catch (error) {
     if (error instanceof PolicyError || error instanceof ConflictError) {
       return { ok: false, text: error.message };

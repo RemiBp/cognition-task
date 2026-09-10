@@ -26,6 +26,8 @@ type LegacyOptions = {
   orphanPending?: boolean;
   /** Open a second proposal on the same record, which the new schema forbids. */
   contestedPending?: boolean;
+  /** Simulate the old application deciding a proposal while the release runs. */
+  decideDuringRelease?: boolean;
 };
 
 const COMPATIBLE_PAYLOAD = {
@@ -82,6 +84,25 @@ async function buildLegacyDatabase(client: PrismaClient, options: LegacyOptions 
   await client.$executeRawUnsafe(
     `INSERT INTO "ApprovalRequest" ("id", "action", "resource", "resourceId", "payload", "summary", "status", "requestedById", "decidedById") VALUES ('legacy-decided', 'refund.approve', 'refund', 'legacy-refund', '{"refundId":"legacy-refund"}', 'Approve refund', 'approved', 'u1', 'u1')`,
   );
+  if (options.decideDuringRelease) {
+    await client.$executeRawUnsafe(
+      `INSERT INTO "ApprovalRequest" ("id", "action", "resource", "resourceId", "payload", "summary", "status", "requestedById") VALUES ('legacy-approval-race', 'kyc_case.decide', 'kyc_case', 'legacy-case-2', ?, 'Mark KYC case as approved', 'pending', 'u1')`,
+      JSON.stringify({ caseId: "legacy-case-2", decision: "approved" }),
+    );
+    // The release loop reads every open proposal, then writes them one by one.
+    // This trigger approves the second one, record included, at the moment the
+    // first is written: exactly the window an application left running would
+    // decide in, reproduced deterministically.
+    await client.$executeRawUnsafe(
+      `CREATE TRIGGER decide_during_release AFTER UPDATE OF "status" ON "ApprovalRequest"
+       WHEN NEW."id" = 'legacy-approval'
+       BEGIN
+         UPDATE "ApprovalRequest" SET "status" = 'approved', "decidedById" = 'u2',
+           "decidedAt" = CURRENT_TIMESTAMP WHERE "id" = 'legacy-approval-race';
+         UPDATE "KycCase" SET "status" = 'approved' WHERE "id" = 'legacy-case-2';
+       END`,
+    );
+  }
 }
 
 function run(command: string, args: string[], database: string) {
@@ -250,6 +271,46 @@ test("releasing an incompatible proposal unblocks the upgrade and changes no rec
     const record = await client.kycCase.findUniqueOrThrow({ where: { id: "legacy-case-1" } });
     assert.equal(record.status, "pending");
     assert.equal(record.version, 0);
+  } finally {
+    await client.$disconnect();
+  }
+});
+
+test("releasing does not overwrite a proposal decided while it runs", async () => {
+  const name = "upgrade-release-race.db";
+  const legacy = legacyClient(name);
+  await buildLegacyDatabase(legacy, {
+    pendingPayload: INCOMPATIBLE_PAYLOAD,
+    decideDuringRelease: true,
+  });
+  await legacy.$disconnect();
+
+  const release = run(
+    "npx",
+    ["tsx", "scripts/upgrade-policy-v2.ts", "--release-incompatible"],
+    name,
+  );
+  assert.equal(release.status, 0, release.stderr);
+  assert.match(release.stdout, /released 1 pending proposal/);
+  assert.match(release.stdout, /skipped 1 proposal\(s\) decided while this ran/);
+  assert.match(release.stdout, /legacy-approval-race/);
+
+  const client = open(name);
+  try {
+    await client.$executeRawUnsafe(`DROP TRIGGER decide_during_release`);
+
+    // The approval that landed in the window keeps its own outcome: its record
+    // was changed by it, so calling it rejected would be a lie about the data.
+    const raced = await client.$queryRawUnsafe<{ status: string; decisionNote: string | null }[]>(
+      `SELECT "status", "decisionNote" FROM "ApprovalRequest" WHERE "id" = 'legacy-approval-race'`,
+    );
+    assert.equal(raced[0].status, "approved");
+    assert.equal(raced[0].decisionNote, null);
+
+    const record = await client.$queryRawUnsafe<{ status: string }[]>(
+      `SELECT "status" FROM "KycCase" WHERE "id" = 'legacy-case-2'`,
+    );
+    assert.equal(record[0].status, "approved");
   } finally {
     await client.$disconnect();
   }

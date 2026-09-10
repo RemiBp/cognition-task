@@ -1,15 +1,38 @@
-# Key Decisions
+# Decisions behind the internal tools prototype
 
-**Decision, not demo.** Devin can build a KYC queue. The real decision is whether this company should own the platform underneath its internal tools. Public list prices only frame the shape of the bill, not this client's: a Power Apps Premium user may run unlimited apps, so going from 3 apps to 13 does not by itself add license cost, and leaving Power Apps does not by itself save the $250K. The number that decides it is their avoidable contract cost, meaning the licenses and capacity they could actually stop paying for, set against the full cost of owning the replacement: engineering, hosting, security work and on-call. The build case rests on control, repeatability and marginal cost across the next ten tools, not on a saving I can assert from here.
+Remi Barbier | 10 September 2026
 
-**Scope.** I spent the two-hour prototype budget on a narrow platform rather than three polished, unrelated screens. It is a Next.js/Prisma monolith with an identity integration seam, server-enforced role checks, a shared maker-checker queue, action-level audit records, typed models, server-side tables and a generator. KYC, refunds and feature flags are deliberately thin examples on top, and a fourth workflow, disputes, was then scaffolded from the same layer. That fourth app is the evidence that a CRUD-shaped workflow inherits the conventions quickly; it does not prove that any arbitrary application is one command away.
+Follow-up to the original submission, tracked separately from its prototype timebox.
 
-**Architecture.** A registered action declares its allowed roles and whether it needs approval. The shared `execute()` path checks policy, records denied attempts and proposals, and captures before/after state. Approval is therefore a property of an action rather than a flow rebuilt inside each app. Server components keep search and pagination in the database. SQLite makes review setup local; production would need Postgres, migrations, backups and row-level controls. The boundary is currently enforced by convention and the generator. Production should also enforce it with database permissions and architecture tests, because TypeScript cannot prevent a future engineer from importing `db` directly.
+## Scope
 
-**Deliberate omissions.** The identity switcher is an unsigned demo cookie, not authentication. The audit table is append-only by application discipline, not database grants or a write-once sink. The tests cover the riskiest policy paths, but that is not production coverage, and the concurrency ones run on SQLite, which serialises writes. I would not let this touch customer decisions or money until observability, operational ownership and the integrations were closed. I also did not replicate Power Apps' connector catalog, DLP controls, inherited compliance, citizen-development surface, hosting or support. Those are platform capabilities, not screen-builder details.
+I used Devin to build KYC, refunds and feature-flag tools around shared controls; Disputes tested extending them. The first version checked roles on the server, but some buttons did not reflect permissions or pending decisions. This follow-up addresses that gap and the consistency of approval execution. It adds no new application.
 
-**Power Apps nuance.** Our first-hand model-driven app was live in about twenty minutes and its Dataverse views query server-side. The 500/2,000-row delegation risk applies to non-delegable Power Fx in canvas apps, not to that view. Power Platform also supports solutions, Git-backed ALM, pipelines and automated tests, although the fast maker path does not establish those practices automatically. The comparison is therefore custom code versus a governed Power Platform setup, not Git versus no Git.
+## 1. Make escalation a handoff
 
-**Follow-up, tracked separately.** The two-hour prototype left approval state, the business write and the audit entry as separate writes, and left role and state rules spread between pages. A later, separately tracked session closed that: one server-side policy that the pages render from and `execute()` re-checks, a database-side reservation so one record carries one open proposal, compare-and-set on a record version, an explicit per-intent key so a network retry reuses a proposal while a deliberate new attempt creates one, and claim plus mutation plus success audit in a single transaction with denials written outside it. That work is not part of the two-hour budget and should not be read as it; it is on an unmerged branch, with its own tests.
+An analyst escalates with a reason; senior review owns the next step. A reviewer proposes a decision and a different authorised person approves it. Rejecting the proposal leaves the customer case in review. This is an operating policy to validate with the client, not a universal KYC rule. Explicit ownership reduces ambiguity, at the cost of another handoff.
 
-**Recommendation.** Pilot owned code on the next regulated, engineering-owned workflow, using Devin to accelerate delivery. Do not rip out the three existing Power Apps: keep them live while that workflow clears a two-week production-readiness pilot. Compare lead time, control evidence, operating cost and ownership capacity. If those gates hold, migrate the existing apps incrementally and retire the relevant licenses at renewal. Keep Power Apps where maker autonomy, connectors or managed governance still win.
+## 2. Share policy, not just components
+
+One server policy uses role, record state and pending proposals to determine available actions and explain restrictions. Execution checks it again. This avoids separate React and backend rules, but a shared defect can affect every tool, so the tests cross workflow boundaries. The generator and AGENTS.md guide contributors; neither prevents a future direct database write. Review remains necessary.
+
+## 3. Keep local decisions in one transaction
+
+I kept Next.js and Prisma in one application, with database-side search and pagination. Approval, the domain change and the success audit commit together. Record versions reject stale writes; a database constraint allows one pending proposal per record. A caller-supplied intent key distinguishes retries from new submissions. These choices simplify local consistency but require explicit retry handling. SQLite tests do not establish Postgres behaviour or reliable payment-provider delivery; those need separate validation.
+
+## Devin and evidence
+
+Devin implemented the revision in PR #8 against explicit acceptance criteria. Independent review found that a delayed retry could recreate a rejected proposal; Devin corrected it and added a regression. Verification covers escalation, self-approval, pending requests after refresh, conflicting submissions, stale versions, rollback and cold loading of a generated tool. This shows reviewed changes to an existing platform, not a measured productivity advantage.
+
+## What this does not replace
+
+Identity and payments are simulated. Production still needs an operated database, SSO, backups, monitoring and stronger audit enforcement. Power Apps also provides business-maker autonomy, connectors and managed platform capabilities. Owning the code transfers those responsibilities; Devin does not operate them for the client.
+
+## Recommendation
+
+Keep the three live apps. Pilot one new engineering-owned workflow with custom control needs and a named owner. Over two weeks, compare lead time, control evidence and estimated ownership cost with an equivalent Power Apps workflow. The $250K bill is not a savings estimate: Premium covers multiple apps per user. Compare avoidable licensing with engineering, Devin usage, hosting, migration and support, including time diverted from the core product. Expand only if the evidence supports it; keep buying where managed capabilities are worth more.
+
+## Sources
+
+- Implementation and verification: https://github.com/RemiBp/cognition-task/pull/8
+- Microsoft licensing guidance: https://learn.microsoft.com/en-us/power-platform/admin/powerapps-flow-licensing-faq

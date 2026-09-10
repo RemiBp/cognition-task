@@ -49,6 +49,10 @@ upgrade in place rather than reset:
 npm run upgrade && npm run db:push   # adds and backfills the new columns, keeps the rows
 ```
 
+Stop the application first. The upgrade reads which proposals are still open before it writes, so
+a decision taken on the old revision while it runs would race it; releasing a proposal refuses to
+overwrite one that was decided in the meantime and reports it instead of guessing.
+
 Open http://localhost:3000. The database is a local SQLite file. A production move to Postgres also requires migrations, deployment, backups, database permissions and integration testing; changing the Prisma datasource is only the first step.
 
 ## Demo users
@@ -100,6 +104,6 @@ The generator adds the Prisma model, an action registered in the policy layer, a
 
 ## What this is not
 
-See [`docs/NOT_REPLICATED.md`](docs/NOT_REPLICATED.md) for the honest list: citizen development, connector library, inherited compliance, on-call. [`docs/COST_MODEL.md`](docs/COST_MODEL.md) has the seat math, and [`KEY_DECISIONS.md`](KEY_DECISIONS.md) the scope and architecture rationale.
+See [`docs/NOT_REPLICATED.md`](docs/NOT_REPLICATED.md) for the honest list: citizen development, connector library, inherited compliance, on-call. [`docs/COST_MODEL.md`](docs/COST_MODEL.md) has the licensing shape and what to cost against it, and [`KEY_DECISIONS.md`](KEY_DECISIONS.md) the scope and architecture rationale.
 
 The same KYC queue was also built in a live Power Apps tenant and timed, so the comparison is first-hand: [`docs/POWER_APPS_COMPARISON.md`](docs/POWER_APPS_COMPARISON.md).

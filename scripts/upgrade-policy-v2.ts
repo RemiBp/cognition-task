@@ -4,6 +4,12 @@
  *
  *   npm run upgrade   # then: npm run db:push
  *
+ * Stop the application before running either command. The old revision can
+ * still decide a pending proposal while this runs, and a decision landing
+ * between the read and the write is a race this script can only detect, not
+ * prevent: `--release-incompatible` refuses to overwrite a row that has been
+ * decided in the meantime, and reports it instead.
+ *
  * The revision adds required and unique columns (case reference, approval
  * payload hash and request key, record versions). Applying it with `prisma db
  * push` alone would fail, or ask to reset, on a populated database. This script
@@ -28,6 +34,7 @@ type ColumnInfo = { name: string };
 
 type LegacyApproval = {
   id: string;
+  createdAt?: string;
   action: string;
   resource: string;
   resourceId: string | null;
@@ -104,9 +111,14 @@ async function preflight(): Promise<{ blockers: string[]; approvals: LegacyAppro
   const existing = await columns("ApprovalRequest");
   const select = ["id", "action", "resource", "payload", "status", "requestedById"];
   if (existing.has("resourceId")) select.push("resourceId");
+  if (existing.has("createdAt")) select.push("createdAt");
+  // Which of several proposals on one record is kept has to be the same on
+  // every run, so the order is stated rather than left to the engine.
+  const order = existing.has("createdAt") ? `"createdAt", "id"` : `"id"`;
 
   const pending = await db.$queryRawUnsafe<LegacyApproval[]>(
-    `SELECT ${select.map((name) => `"${name}"`).join(", ")} FROM "ApprovalRequest" WHERE "status" = 'pending'`,
+    `SELECT ${select.map((name) => `"${name}"`).join(", ")} FROM "ApprovalRequest"
+     WHERE "status" = 'pending' ORDER BY ${order}`,
   );
 
   const orphans = pending.filter((row) => !row.resourceId);
@@ -160,23 +172,38 @@ async function releaseBlockedProposals(pending: LegacyApproval[]) {
     const key = `${row.resource}:${row.resourceId}`;
     contested.set(key, [...(contested.get(key) ?? []), row]);
   }
-  // Where a record has several open proposals, the oldest one is kept and the
-  // rest are released: the schema allows exactly one.
+  // Where a record has several open proposals, the first in the deterministic
+  // order the preflight read them in is kept and the rest are released: the
+  // schema allows exactly one.
   for (const rows of contested.values()) {
     if (rows.length > 1) doomed.push(...rows.slice(1));
   }
 
+  let released = 0;
+  const skipped: string[] = [];
   for (const row of doomed) {
-    await db.$executeRawUnsafe(
+    // Compare-and-set on the status the preflight saw. If the old application
+    // approved this proposal in between, its domain change is already applied
+    // and overwriting the row with 'rejected' would describe an approval as a
+    // rejection.
+    const changed = await db.$executeRawUnsafe(
       `UPDATE "ApprovalRequest"
        SET "status" = 'rejected', "decidedAt" = CURRENT_TIMESTAMP,
            "decisionNote" = 'Released by the policy revision upgrade: this proposal predates the current action contract and was never decided. The record was not changed; propose it again if it still applies.'
-       WHERE "id" = ?`,
+       WHERE "id" = ? AND "status" = 'pending'`,
       row.id,
     );
+    if (changed === 1) released += 1;
+    else skipped.push(row.id);
   }
-  console.log(`released ${doomed.length} pending proposal(s); no record was changed`);
-  return doomed.length;
+  console.log(`released ${released} pending proposal(s); no record was changed`);
+  if (skipped.length > 0) {
+    console.log(
+      `skipped ${skipped.length} proposal(s) decided while this ran, left as they are: ` +
+        `${skipped.join(", ")}. Stop the application, then run the upgrade again.`,
+    );
+  }
+  return released;
 }
 
 async function main() {
@@ -201,7 +228,7 @@ async function main() {
     throw new Error(
       `This database cannot be upgraded as it stands. Nothing has been changed.\n\n` +
         blockers.map((line) => `  - ${line}`).join("\n") +
-        `\n\nDecide those proposals in the running application on the current revision, or ` +
+        `\n\nStop the application, then decide those proposals on the current revision, or ` +
         `release them without touching the records they targeted:\n\n` +
         `  npm run upgrade -- --release-incompatible\n\n` +
         `Releasing rejects the proposals, which leaves every record as it is. The same ` +
