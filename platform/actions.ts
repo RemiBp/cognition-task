@@ -169,6 +169,29 @@ function requestStatusOf(status: string): "pending" | "approved" | "rejected" {
   return status === "approved" || status === "rejected" ? status : "pending";
 }
 
+/**
+ * The answer to a second delivery of one intent, wherever it is discovered:
+ * by reading the request key, or by losing the race to create it. Both have to
+ * hold the same contract, so content that differs from what the key already
+ * carries conflicts rather than being answered with someone else's proposal.
+ */
+function replayOf(
+  existing: { id: string; payloadHash: string; status: string },
+  payloadHash: string,
+) {
+  if (existing.payloadHash !== payloadHash) {
+    throw new ConflictError(
+      "This request was already submitted with different content. Reload and submit again.",
+    );
+  }
+  return {
+    status: "proposed",
+    approvalId: existing.id,
+    reused: true,
+    requestStatus: requestStatusOf(existing.status),
+  } as const;
+}
+
 function isUniqueViolation(error: unknown, field: string): boolean {
   const candidate = error as { code?: string; meta?: { target?: unknown } };
   if (candidate?.code !== "P2002") return false;
@@ -285,19 +308,7 @@ export async function execute(
         // the proposal the first delivery created, never a second proposal and
         // never a refusal caused by the reservation it took.
         const existing = await client.approvalRequest.findUnique({ where: { requestKey } });
-        if (existing) {
-          if (existing.payloadHash !== payloadHash) {
-            throw new ConflictError(
-              "This request was already submitted with different content. Reload and submit again.",
-            );
-          }
-          return {
-            status: "proposed",
-            approvalId: existing.id,
-            reused: true,
-            requestStatus: requestStatusOf(existing.status),
-          } as const;
-        }
+        if (existing) return replayOf(existing, payloadHash);
 
         const active = await client.approvalRequest.findFirst({
           where: { resource: action.resource, resourceId: canonicalResourceId, activeKey: "active" },
@@ -352,16 +363,11 @@ export async function execute(
       });
     } catch (error) {
       if (isUniqueViolation(error, "requestKey")) {
-        // An identical retry raced us; reuse the request the other one created.
+        // A retry raced us to the same key. It is answered exactly as the read
+        // above answers it, conflict included: the winner's content decides
+        // what that key means.
         const existing = await db.approvalRequest.findUnique({ where: { requestKey } });
-        if (existing) {
-          return {
-            status: "proposed",
-            approvalId: existing.id,
-            reused: true,
-            requestStatus: requestStatusOf(existing.status),
-          };
-        }
+        if (existing) return replayOf(existing, payloadHash);
       }
       if (isUniqueViolation(error, "activeKey")) {
         // Two different intents raced past the read above. The loser reports

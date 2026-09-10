@@ -178,6 +178,23 @@ test("concurrent retries of one submit produce exactly one reservation", async (
   assert.equal(await db.approvalRequest.count(), 1);
 });
 
+test("concurrent submits sharing an intent key but not their content conflict", async () => {
+  await seedCase();
+  // One key, two different decisions, delivered together. Whichever branch
+  // answers the loser, the read on the key or the unique violation on
+  // creating it, the contract is the same: a key means one payload. SQLite
+  // serialises writes, so which branch runs is not something this asserts.
+  const results = await Promise.allSettled([
+    execute("kyc_case.decide", approvalOf("approved", 0, "intent-same-key"), actors.analyst),
+    execute("kyc_case.decide", approvalOf("rejected", 0, "intent-same-key"), actors.analyst),
+  ]);
+
+  assert.equal(results.filter((item) => item.status === "fulfilled").length, 1);
+  const rejected = results.find((item) => item.status === "rejected");
+  assert.ok(rejected?.status === "rejected" && rejected.reason instanceof ConflictError);
+  assert.equal(await db.approvalRequest.count(), 1);
+});
+
 test("concurrent opposite proposals leave one winner and one conflict", async () => {
   await seedCase();
   const results = await Promise.allSettled([
