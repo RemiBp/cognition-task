@@ -5,7 +5,16 @@ import { useEffect, useState, useTransition } from "react";
 import { decideApproval } from "@/app/actions";
 import { ActionToast } from "@/platform/ui/ActionToast";
 
-export function DecisionButtons({ approvalId }: { approvalId: string }) {
+export function DecisionButtons({
+  approvalId,
+  mayApprove,
+  blockedReason,
+}: {
+  approvalId: string;
+  /** Server verdict. Rejecting stays available when this is false. */
+  mayApprove: boolean;
+  blockedReason?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -31,6 +40,9 @@ export function DecisionButtons({ approvalId }: { approvalId: string }) {
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {!mayApprove && blockedReason && (
+        <p className="w-full text-right text-xs text-amber-700 lg:max-w-xs">{blockedReason}</p>
+      )}
       <input
         value={note}
         maxLength={500}
@@ -42,7 +54,9 @@ export function DecisionButtons({ approvalId }: { approvalId: string }) {
       <div className="flex gap-1.5">
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || !mayApprove}
+          aria-disabled={!mayApprove}
+          title={mayApprove ? undefined : blockedReason}
           onClick={() => submit("approved")}
           className="inline-flex h-8 items-center rounded-sm bg-brand-900 px-4 text-[12px] font-semibold text-white transition outline-none hover:bg-ink focus-visible:ring-2 focus-visible:ring-brand-900/25 disabled:opacity-40"
         >

@@ -1,6 +1,10 @@
+import { activeProposalsFor } from "@/platform/approvals";
+import { getActor } from "@/platform/auth";
 import { db } from "@/platform/db";
 import { statusWhere } from "@/platform/filters";
-import { ActionButton } from "@/platform/ui/ActionButton";
+import { nextStep } from "@/platform/policy";
+import { ActionControls, type ActionOption } from "@/platform/ui/ActionControls";
+import { controlsFor } from "@/platform/ui/controls";
 import { DataTable, type Column } from "@/platform/ui/DataTable";
 import { StatusFilter } from "@/platform/ui/StatusFilter";
 import { PageHeader, StatusBadge } from "@/platform/ui/primitives";
@@ -18,6 +22,8 @@ type DisputeRow = {
   reason: string;
   status: string;
   processorRef: string | null;
+  controls: ActionOption[];
+  waitingOn: string;
 };
 
 export default async function DisputesPage({
@@ -28,6 +34,7 @@ export default async function DisputesPage({
   const { q, page: pageParam, status: statusParam } = await searchParams;
   const page = Math.max(1, Number(pageParam ?? 1));
   const status = statusParam ?? "open";
+  const actor = await getActor();
   const where = {
     ...statusWhere(status, OPEN_STATUSES),
     ...(q
@@ -35,16 +42,42 @@ export default async function DisputesPage({
       : {}),
   };
 
-  const [rows, total, exposure] = await Promise.all([
+  const [disputes, total, exposure] = await Promise.all([
     db.dispute.findMany({
       where,
-      orderBy: [{ amountCents: "desc" }],
+      orderBy: [{ amountCents: "desc" }, { openedAt: "asc" }, { id: "asc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
     db.dispute.count({ where }),
     db.dispute.aggregate({ where: { status: "open" }, _sum: { amountCents: true } }),
   ]);
+
+  const proposals = await activeProposalsFor(
+    "dispute",
+    disputes.map((row) => row.id),
+  );
+
+  const rows: DisputeRow[] = disputes.map((row) => {
+    const state = {
+      record: { id: row.id, status: row.status, version: row.version },
+      activeProposal: proposals.get(row.id) ?? null,
+    };
+    const payload = { disputeId: row.id, expectedVersion: row.version };
+
+    return {
+      ...row,
+      waitingOn: nextStep(state),
+      controls: controlsFor(
+        [
+          { policyKey: "dispute.refund", actionKey: "dispute.refund", payload },
+          { policyKey: "dispute.close", actionKey: "dispute.close", payload },
+        ],
+        actor,
+        state,
+      ),
+    };
+  });
 
   const columns: Column<DisputeRow>[] = [
     { header: "Reference", cell: (row) => <span className="font-mono text-xs">{row.reference}</span> },
@@ -64,28 +97,14 @@ export default async function DisputesPage({
       cell: (row) => <span className="font-mono text-[11px] text-muted">{row.processorRef ?? "—"}</span>,
     },
     {
+      header: "Waiting on",
+      className: "hidden xl:table-cell",
+      cell: (row) => <span className="text-xs text-muted">{row.waitingOn}</span>,
+    },
+    {
       header: "Decision",
       className: "whitespace-nowrap",
-      cell: (row) =>
-        row.status === "open" ? (
-          <span className="flex gap-1.5">
-            <ActionButton
-              actionKey="dispute.refund"
-              payload={{ disputeId: row.id }}
-              resourceId={row.id}
-              label="Refund"
-            />
-            <ActionButton
-              actionKey="dispute.close"
-              payload={{ disputeId: row.id }}
-              resourceId={row.id}
-              label="Close"
-              variant="quiet"
-            />
-          </span>
-        ) : (
-          <span className="text-xs text-muted">settled</span>
-        ),
+      cell: (row) => <ActionControls actions={row.controls} />,
     },
   ];
 
@@ -94,7 +113,7 @@ export default async function DisputesPage({
       <PageHeader
         title="Disputes queue"
         eyebrow="Support"
-        subtitle={`Open exposure: ${((exposure._sum.amountCents ?? 0) / 100).toFixed(2)} EUR. Refunding a dispute moves money, so a support agent proposes and a second approver executes; closing without a refund is admin-only and immediate.`}
+        subtitle={`Open exposure: ${((exposure._sum.amountCents ?? 0) / 100).toFixed(2)} EUR. Refunding a dispute moves money, so a support agent proposes and a second approver executes; closing without a refund is admin-only, and is refused while a refund proposal is still open on the same dispute.`}
       />
       <DataTable
         rows={rows}

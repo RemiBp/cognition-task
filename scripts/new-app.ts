@@ -51,28 +51,77 @@ const schema = readFileSync(schemaPath, "utf8");
 if (!schema.includes(`model ${pascal} {`)) {
   writeFileSync(
     schemaPath,
-    `${schema}\nmodel ${pascal} {\n  id        String   @id @default(cuid())\n  reference String   @unique\n  subject   String\n  status    String   @default("open") // open | resolved | dismissed\n  notes     String?\n  createdAt DateTime @default(now())\n}\n`,
+    `${schema}\nmodel ${pascal} {\n  id        String   @id @default(cuid())\n  reference String   @unique\n  subject   String\n  status    String   @default("open") // open | resolved | dismissed\n  notes     String?\n  version   Int      @default(0) // compare-and-set guard for concurrent writes\n  createdAt DateTime @default(now())\n}\n`,
   );
 }
 
 // 2. Action with its own policy, inheriting audit + approvals ---------------
 writeFileSync(
   join(appDir, "actions.ts"),
-  `import { registerAction } from "@/platform/actions";
-import { db } from "@/platform/db";
+  `import { INTENT_KEY, registerAction } from "@/platform/actions";
+import { ConflictError } from "@/platform/rbac";
+import { registerPolicy, registerResourceLoader } from "@/platform/policy";
 import { z } from "zod";
 
-export const resolve${pascal} = registerAction<{ id: string; status: "resolved" | "dismissed" }>({
+// intentKey identifies one submit: a retry of it reuses the proposal already
+// created, a deliberate second attempt carries a new one.
+type Payload = {
+  id: string;
+  expectedVersion: number;
+  status: "resolved" | "dismissed";
+  intentKey: string;
+};
+
+registerResourceLoader("${snake}", (client, id) =>
+  client.${camel}.findUnique({ where: { id }, select: { id: true, status: true, version: true } }),
+);
+
+// Availability is declared once here and read by the page; the same verdict is
+// re-evaluated inside the transaction that performs the write.
+registerPolicy("${snake}.resolve", {
+  resource: "${snake}",
+  label: "Propose resolution",
+  requiresReason: false,
+  evaluate: ({ actor, state }) => {
+    if (!state.record) return { available: false, reason: "This record no longer exists." };
+    if (actor.role === "viewer") return { available: false, reason: "Your role is read-only." };
+    if (state.record.status !== "open") return { available: false, reason: "Already settled." };
+    if (state.activeProposal) {
+      return { available: false, reason: "A proposal is awaiting independent approval." };
+    }
+    return { available: true };
+  },
+});
+
+export const resolve${pascal} = registerAction<Payload>({
   key: "${snake}.resolve",
   resource: "${snake}",
   roles: ["analyst", "approver", "admin"],
-  schema: z.object({ id: z.string().min(1), status: z.enum(["resolved", "dismissed"]) }),
+  schema: z.object({
+    id: z.string().min(1),
+    expectedVersion: z.number().int().nonnegative(),
+    status: z.enum(["resolved", "dismissed"]),
+    intentKey: INTENT_KEY,
+  }),
   resourceId: ({ id }) => id,
+  expectedVersion: ({ expectedVersion }) => expectedVersion,
+  intentKey: ({ intentKey }) => intentKey,
   requiresApproval: true,
-  describe: ({ id, status }) => \`Mark ${camel} …\${id.slice(-6)} as \${status}\`,
-  before: ({ id }) => db.${camel}.findUnique({ where: { id } }),
-  apply: async ({ id, status }, ctx) => {
-    const updated = await db.${camel}.update({ where: { id }, data: { status } });
+  describe: ({ status }) => \`Mark ${camel} as \${status}\`,
+  subject: async ({ id }, client) => {
+    const row = await client.${camel}.findUnique({ where: { id }, select: { reference: true, subject: true } });
+    return row ? \`\${row.reference} · \${row.subject}\` : undefined;
+  },
+  before: ({ id }, client) => client.${camel}.findUnique({ where: { id } }),
+  apply: async ({ id, expectedVersion, status }, ctx) => {
+    const changed = await ctx.tx.${camel}.updateMany({
+      where: { id, version: expectedVersion },
+      data: { status, version: expectedVersion + 1 },
+    });
+    if (changed.count !== 1) {
+      throw new ConflictError("This record changed since the page was loaded. Reload it.");
+    }
+    const updated = await ctx.tx.${camel}.findUniqueOrThrow({ where: { id } });
     ctx.snapshot(updated);
     return updated;
   },
@@ -83,8 +132,16 @@ export const resolve${pascal} = registerAction<{ id: string; status: "resolved" 
 // 3. Page built from the shared table --------------------------------------
 writeFileSync(
   join(appDir, "page.tsx"),
-  `import { db } from "@/platform/db";
-import { ActionButton } from "@/platform/ui/ActionButton";
+  `// Importing the actions module is what registers this app's policy and
+// resource loader. The server action file is a separate module graph, so a
+// page that only references the action through a form would render before the
+// policy exists and show "No policy is declared for this action".
+import "./actions";
+import { activeProposalsFor } from "@/platform/approvals";
+import { getActor } from "@/platform/auth";
+import { db } from "@/platform/db";
+import { ActionControls, type ActionOption } from "@/platform/ui/ActionControls";
+import { controlsFor } from "@/platform/ui/controls";
 import { DataTable, type Column } from "@/platform/ui/DataTable";
 import { PageHeader, StatusBadge } from "@/platform/ui/primitives";
 
@@ -96,6 +153,7 @@ type Row = {
   subject: string;
   status: string;
   createdAt: Date;
+  controls: ActionOption[];
 };
 
 export default async function ${pascal}Page({
@@ -105,19 +163,40 @@ export default async function ${pascal}Page({
 }) {
   const { q, page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam ?? 1));
+  const actor = await getActor();
   const where = q
     ? { OR: [{ reference: { contains: q } }, { subject: { contains: q } }] }
     : {};
 
-  const [rows, total] = await Promise.all([
+  const [records, total] = await Promise.all([
     db.${camel}.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
     db.${camel}.count({ where }),
   ]);
+
+  const proposals = await activeProposalsFor("${snake}", records.map((row) => row.id));
+
+  const rows: Row[] = records.map((row) => ({
+    ...row,
+    controls: controlsFor(
+      [
+        {
+          policyKey: "${snake}.resolve",
+          actionKey: "${snake}.resolve",
+          payload: { id: row.id, expectedVersion: row.version, status: "resolved" },
+        },
+      ],
+      actor,
+      {
+        record: { id: row.id, status: row.status, version: row.version },
+        activeProposal: proposals.get(row.id) ?? null,
+      },
+    ),
+  }));
 
   const columns: Column<Row>[] = [
     { header: "Reference", cell: (row) => <span className="font-mono text-xs">{row.reference}</span> },
@@ -126,26 +205,7 @@ export default async function ${pascal}Page({
     { header: "Created", cell: (row) => row.createdAt.toISOString().slice(0, 10) },
     {
       header: "Action",
-      cell: (row) =>
-        row.status === "open" ? (
-          <span className="flex gap-1.5">
-            <ActionButton
-              actionKey="${snake}.resolve"
-              payload={{ id: row.id, status: "resolved" }}
-              resourceId={row.id}
-              label="Resolve"
-            />
-            <ActionButton
-              actionKey="${snake}.resolve"
-              payload={{ id: row.id, status: "dismissed" }}
-              resourceId={row.id}
-              label="Dismiss"
-              variant="quiet"
-            />
-          </span>
-        ) : (
-          <span className="text-xs text-muted">closed</span>
-        ),
+      cell: (row) => <ActionControls actions={row.controls} />,
     },
   ];
 

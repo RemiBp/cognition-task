@@ -44,4 +44,8 @@ dev.db
 dev.db-journal
 test.db
 test.db-journal
+demo.db
+demo.db-journal
+upgrade-*.db
+upgrade-*.db-journal
 .env

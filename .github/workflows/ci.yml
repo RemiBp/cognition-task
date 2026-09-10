@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      # A throwaway SQLite file inside the runner; no service container, no
+      # secret, nothing outside the checkout.
+      DATABASE_URL: file:./ci.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run setup
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      # The two registry-bootstrap failures it covers are invisible to the
+      # steps above: they typecheck, they build, and they only appear on a
+      # cold render.
+      - run: npm run smoke:generator

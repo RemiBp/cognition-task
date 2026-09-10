@@ -1,6 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import { db } from "@/platform/db";
+import { PEOPLE, demoCase } from "./fixtures";
 
-const db = new PrismaClient();
+/**
+ * The seed leaves every case, including the demo one, in its initial state.
+ * The scripted Sam/Priya/Alex walkthrough is `npm run demo:journey`, an
+ * explicit command against an isolated demo database.
+ */
 
 const FIRST = ["Amelia", "Noah", "Léa", "Tomás", "Ines", "Karim", "Yuki", "Mateo", "Fatima", "Jonas"];
 const LAST = ["Okafor", "Lindqvist", "Moreau", "Duarte", "Ferrari", "Haddad", "Tanaka", "Novak", "Bauer", "Kowalski"];
@@ -33,18 +38,12 @@ async function main() {
   await db.dispute.deleteMany();
   await db.user.deleteMany();
 
-  await db.user.createMany({
-    data: [
-      { email: "dana.viewer@northwindpay.com", name: "Dana Reyes", role: "viewer" },
-      { email: "sam.analyst@northwindpay.com", name: "Sam Okonjo", role: "analyst" },
-      { email: "priya.approver@northwindpay.com", name: "Priya Raman", role: "approver" },
-      { email: "alex.admin@northwindpay.com", name: "Alex Fournier", role: "admin" },
-    ],
-  });
+  await db.user.createMany({ data: Object.values(PEOPLE) });
 
   // 240 KYC cases: enough that client-side filtering would be the wrong answer.
   await db.kycCase.createMany({
     data: Array.from({ length: 240 }, (_, i) => ({
+      reference: `KYC-${String(200_000 + i * 3)}`,
       customerName: `${pick(FIRST, i)} ${pick(LAST, i * 3 + 1)}`,
       country: pick(COUNTRIES, i * 7),
       riskScore: (i * 37) % 100,
@@ -52,8 +51,12 @@ async function main() {
       status: i % 5 === 0 ? "approved" : i % 11 === 0 ? "escalated" : "pending",
       submittedAt: new Date(Date.now() - i * 3_600_000),
       notes: i % 9 === 0 ? "Adverse media hit requires manual review." : null,
+      evidenceSummary:
+        "Synthetic file: declared identity, declared address and screening results only. No document image is stored.",
     })),
   });
+
+  await db.kycCase.create({ data: demoCase() });
 
   await db.refund.createMany({
     data: Array.from({ length: 120 }, (_, i) => ({

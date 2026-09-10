@@ -1,22 +1,29 @@
 # Cost model
 
-All Power Apps list prices below are Microsoft's public US prices at the time of writing; the client's contract, region and entitlements may differ. Source: [Microsoft Power Apps pricing](https://www.microsoft.com/en-us/power-platform/products/power-apps/pricing) and [Power Platform licensing FAQ](https://learn.microsoft.com/en-us/power-platform/admin/powerapps-flow-licensing-faq).
+Public list prices differ by market and by when the page is read, so none are quoted here. The basis for any number in this comparison is the client's own agreement. Sources for the licensing shape: [Microsoft Power Apps pricing](https://www.microsoft.com/en-us/power-platform/products/power-apps/pricing) and [Power Platform licensing FAQ](https://learn.microsoft.com/en-us/power-platform/admin/powerapps-flow-licensing-faq).
 
-## Where the $250K goes
+The $250K/year is the figure given with the scenario. It is a bill, not a saving, and no breakdown of the client's contract has been supplied.
 
-| Line | List price | Note |
-| --- | --- | --- |
-| Power Apps Premium | $22 / user / month, paid yearly | $14 with a 2,000-seat minimum |
-| Dataverse Database capacity add-on | $40 / GB / month, paid yearly | pooled at tenant level, model separately from seat count |
-| Per-app licensing | not listed on the public pricing page | legacy or contract-dependent; price it from the client's own agreement |
+## What to verify in the contract
 
-$250K/year ≈ **~950 Premium seats at list**, or fewer seats plus capacity add-ons. The important consequence: the bill scales with the number of *tool users*, meaning ops, compliance, support and finance, not with the 60 engineers.
+| Line | What to read from the agreement |
+| --- | --- |
+| Power Apps Premium | how many users are assigned, which of them actually use the tools, and the unit price actually paid |
+| Dataverse capacity and add-ons | the entitlements included, consumption against them, and what is charged beyond them |
+| Per-app or contract-specific terms | which users and which apps are charged, and what commitments or minimums apply |
+
+What the shape tells us without any of those numbers: the bill scales with the number of *tool users*, meaning ops, compliance, support and finance, not with the 60 engineers.
 
 ## What 13 apps does to each option
 
-**Buy.** Where per-app licensing is in play, cost grows roughly with (users × apps). Ten more tools rolled out to overlapping ops populations is the scenario that pushes you onto Premium seats for everyone, i.e. a step change, not a gradual one. Past 2,000 seats the $14 tier softens that step, so the crossover depends on how wide the rollout goes.
+**Buy.** This depends entirely on which licensing the client is actually on, and the licence model matters.
 
-**Build.** Cost is dominated by a fixed platform cost, not per-app cost:
+- *Premium, per licensed user.* A Premium user may run unlimited apps. Going from 3 apps to 13 for the same assigned users adds no license cost at all. What grows the bill is more people using the tools, and Dataverse capacity.
+- *Per-app or contract-specific licensing.* Cost grows roughly with (users × apps), so the same ten tools are a step change. Wide rollouts under this model are the case that pushes an organisation onto Premium for everyone.
+
+So the ten new apps do not automatically increase license cost, and dropping Power Apps does not automatically save money. Both directions have to be priced from the client's actual contract: which licenses, how many, which are avoidable if the workflows move, and what Dataverse and connector capacity they carry.
+
+**Build.** The planning assumption is that a fixed platform cost dominates, so budget both shared ownership and the integration, review and delivery work each workflow carries:
 
 | Line | Estimate | Note |
 | --- | --- | --- |
@@ -27,6 +34,6 @@ $250K/year ≈ **~950 Premium seats at list**, or fewer seats plus capacity add-
 
 ## The honest conclusion
 
-The avoided license cost may be of the same order as meaningful platform ownership, but the client-specific numbers are not known. **Build-vs-buy here is not automatically a cost-reduction decision.** It becomes more plausible across a larger roadmap, but only tools that fit shared CRUD/workflow conventions receive the full reuse benefit. Novel integrations, controls and operating work remain real costs.
+The comparison that decides this is the client's avoidable contract cost, meaning the licenses and capacity they could actually stop paying for if a given set of workflows moved, against the full cost of owning the replacement: platform ownership, hosting, security and compliance work, migration and ongoing operations. Neither side of that comparison is known from public prices. **Build-vs-buy here is not automatically a cost-reduction decision.** It becomes more plausible across a larger roadmap, but only tools that fit shared CRUD/workflow conventions receive the full reuse benefit. Novel integrations, controls and operating work remain real costs.
 
-The defensible reasons to build are control, correctness at data scale, testability, and customization. If the client's board is told "we saved $250K", that claim will not survive the first year.
+The defensible reasons to build are control, correctness at data scale, testability, and customization. Do not present the $250K licence bill as net savings without accounting for ownership costs.

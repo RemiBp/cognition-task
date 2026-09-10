@@ -1,5 +1,11 @@
+import Link from "next/link";
+// The queue reads records belonging to every app, so its render graph has to
+// carry every resource loader. Without this the page renders cold with only
+// the loaders its own imports happen to pull in, and a record from another app
+// reads as deleted.
+import "@/platform/registry";
 import { getActor } from "@/platform/auth";
-import { decidedApprovals, pendingApprovals } from "@/platform/approvals";
+import { decidedApprovals, decisionEligibility, pendingApprovals } from "@/platform/approvals";
 import { can } from "@/platform/rbac";
 import { Card, PageHeader, StatusBadge } from "@/platform/ui/primitives";
 import { DecisionButtons } from "./DecisionButtons";
@@ -12,6 +18,16 @@ export default async function ApprovalsPage() {
   ]);
 
   const mayDecide = can(actor, "approval.decide");
+  // A reviewer should be able to read the record rather than the proposer's
+  // one-line summary of it, and should know whether it still says what the
+  // proposer saw. Both answers come from the server with the queue.
+  const eligibility = new Map(
+    await Promise.all(
+      pending.map(
+        async (request) => [request.id, await decisionEligibility(request)] as const,
+      ),
+    ),
+  );
 
   return (
     <>
@@ -39,12 +55,43 @@ export default async function ApprovalsPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <div className="text-[15px] font-bold text-ink">{request.summary}</div>
+                {request.subject && (
+                  <div className="mt-0.5 text-[13px] text-ink/80">{request.subject}</div>
+                )}
+                {request.reason && (
+                  <div className="mt-1 text-xs text-muted">Reason: {request.reason}</div>
+                )}
                 <div className="mt-1 text-xs text-muted">
                   Requested by {request.requestedBy.name} ({request.requestedBy.role}) ·{" "}
                   {request.createdAt.toISOString().slice(0, 16).replace("T", " ")}
                 </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-muted">
+                  <span>
+                    Target version {eligibility.get(request.id)?.targetVersion} · record now at{" "}
+                    {eligibility.get(request.id)?.currentVersion ?? "gone"}
+                  </span>
+                  {request.resource === "kyc_case" && (
+                    <Link
+                      href={`/kyc/${request.resourceId}`}
+                      className="font-medium text-brand-900 underline underline-offset-2 hover:text-ink"
+                    >
+                      Review case
+                    </Link>
+                  )}
+                </div>
               </div>
-              {mayDecide && <DecisionButtons approvalId={request.id} />}
+              {mayDecide &&
+                (request.requestedById === actor.id ? (
+                  <span className="text-xs text-muted">
+                    You proposed this change, so it awaits a different approver.
+                  </span>
+                ) : (
+                  <DecisionButtons
+                    approvalId={request.id}
+                    mayApprove={eligibility.get(request.id)?.mayApprove ?? false}
+                    blockedReason={eligibility.get(request.id)?.reason}
+                  />
+                ))}
             </div>
           </Card>
         ))}
@@ -63,7 +110,12 @@ export default async function ApprovalsPage() {
                     key={request.id}
                     className="border-b border-line/60 transition last:border-0 hover:bg-canvas"
                   >
-                    <td className="px-4 py-3">{request.summary}</td>
+                    <td className="px-4 py-3">
+                      {request.summary}
+                      {request.subject && (
+                        <span className="block text-xs text-muted">{request.subject}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <StatusBadge value={request.status} />
                     </td>
