@@ -66,7 +66,7 @@ Switch identity with the menu in the header:
 | `priya.approver@northwindpay.com` | approver | decide pending approvals |
 | `alex.admin@northwindpay.com` | admin | feature flags, direct dispute close, and deciding other people's proposals |
 
-Admin is not a bypass: an admin cannot approve their own proposal, and cannot move a record to a terminal state without one.
+Admin is not a bypass for maker-checker actions: an admin cannot approve their own proposal. Actions explicitly configured for direct execution, such as closing a dispute, do not require a proposal.
 
 Switching identity here is a demo device, not a login.
 
